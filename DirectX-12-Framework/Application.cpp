@@ -1,10 +1,13 @@
 #include "Application.h"
+#include "Window.h"
 
 using namespace Microsoft::WRL;
 using namespace DirectX;
 
-Application::Application(UINT width, UINT height, const wchar_t* name)
+Application::Application(HINSTANCE hInstance)
 {
+    m_window = std::make_shared<Window>(hInstance);
+    m_window->Show();
 }
 
 void Application::Initialize()
@@ -35,7 +38,18 @@ void Application::InitializePipeline()
 
     // create the direct command queue
     m_commandQueue = CreateCommandQueue(m_device, D3D12_COMMAND_LIST_TYPE_DIRECT);
+
+    m_swapChain = CreateSwapChain(m_window->GetHWND(), m_commandQueue, m_window->GetClientWidth(), m_window->GetClientHeight(), m_frameCount);
+
+    // create RTV descriptor heap
+    m_rtvHeap = CreateDescriptorHeap(m_device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, m_frameCount, m_rtvDescriptorSize);
+
+    m_renderTargets = CreateRenderTargetViews(m_device, m_rtvHeap, m_swapChain, m_rtvDescriptorSize);
+
+    m_commandAllocator = CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT);
 }
+
+
 
 Microsoft::WRL::ComPtr<ID3D12Debug> Application::EnableDebugLayer()
 {
@@ -59,7 +73,7 @@ Microsoft::WRL::ComPtr<IDXGIAdapter4> Application::GetAdapter(bool useWarpDevice
     createFactoryFlags = DXGI_CREATE_FACTORY_DEBUG;
 #endif //DEBUG
 
-    ThrowIfFailed(CreateDXGIFactory2(createFactoryFlags, IID_PPV_ARGS(&dxgiFactory)));
+    ThrowIfFailed(CreateDXGIFactory2(createFactoryFlags, IID_PPV_ARGS(&dxgiFactory)), "Couldn't create factory.\n");
 
     ComPtr<IDXGIAdapter1> dxgiAdapter1;
     ComPtr<IDXGIAdapter4> dxgiAdapter4;
@@ -67,9 +81,9 @@ Microsoft::WRL::ComPtr<IDXGIAdapter4> Application::GetAdapter(bool useWarpDevice
     if (useWarpDevice)
     {
         // if a warp device is to be used, EnumWarpAdapter will directly create the warp adapter
-        ThrowIfFailed(dxgiFactory->EnumWarpAdapter(IID_PPV_ARGS(&dxgiAdapter1)));
+        ThrowIfFailed(dxgiFactory->EnumWarpAdapter(IID_PPV_ARGS(&dxgiAdapter1)), "Couldn't get adapter.\n");
         // cannot static_cast COM, so .As casts com to correct type
-        ThrowIfFailed(dxgiAdapter1.As(&dxgiAdapter4));
+        ThrowIfFailed(dxgiAdapter1.As(&dxgiAdapter4), "Couldn't get adapter.\n");
     }
     else
     {
@@ -89,7 +103,7 @@ Microsoft::WRL::ComPtr<IDXGIAdapter4> Application::GetAdapter(bool useWarpDevice
                 dxgiAdapterDesc1.DedicatedVideoMemory > maxDedicatedVideoMemory)
             {
                 maxDedicatedVideoMemory = dxgiAdapterDesc1.DedicatedVideoMemory;
-                ThrowIfFailed(dxgiAdapter1.As(&dxgiAdapter4));  // cast the adapter and return it
+                ThrowIfFailed(dxgiAdapter1.As(&dxgiAdapter4), "Couldn't get adapter.\n");  // cast the adapter and return it
             }
         }
     }
@@ -97,13 +111,14 @@ Microsoft::WRL::ComPtr<IDXGIAdapter4> Application::GetAdapter(bool useWarpDevice
     return dxgiAdapter4;
 }
 
-Microsoft::WRL::ComPtr<ID3D12Device3> Application::CreateDevice(Microsoft::WRL::ComPtr<IDXGIAdapter4> adapter)
+Microsoft::WRL::ComPtr<ID3D12Device4> Application::CreateDevice(Microsoft::WRL::ComPtr<IDXGIAdapter4> adapter)
 {
-    ComPtr<ID3D12Device3> d3d12Device3;
+    ComPtr<ID3D12Device4> d3d12Device3;
     ThrowIfFailed(D3D12CreateDevice(
         adapter.Get(),  //pointer to video adapter to use when creating device
         D3D_FEATURE_LEVEL_11_0, //minimum feature level for successful device creation
-        IID_PPV_ARGS(&d3d12Device3)));  //store device in this argument
+        IID_PPV_ARGS(&d3d12Device3)
+    ), "Couldn't create Device.\n");  //store device in this argument
 
 #if defined(_DEBUG)
 
@@ -160,6 +175,125 @@ Microsoft::WRL::ComPtr<ID3D12CommandQueue> Application::CreateCommandQueue(Micro
     ThrowIfFailed(device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&commandQueue)), "Couldn't ceate command queue.");
 
     return commandQueue;
+}
+
+Microsoft::WRL::ComPtr<IDXGISwapChain4> Application::CreateSwapChain(HWND hWnd, Microsoft::WRL::ComPtr<ID3D12CommandQueue> commandQueue, uint32_t width, uint32_t height, uint32_t bufferCount)
+{
+    ComPtr<IDXGISwapChain4> dxgiSwapChain4;
+    ComPtr<IDXGIFactory4> dxgiFactory4;
+    UINT createFactoryFlags = 0;
+
+#if defined (_DEBUG)
+    createFactoryFlags = DXGI_CREATE_FACTORY_DEBUG;
+#endif
+
+    // Create the dxgi factory
+    ThrowIfFailed(CreateDXGIFactory2(createFactoryFlags, IID_PPV_ARGS(&dxgiFactory4)), "Couldn't create swap chain.\n");
+
+    // Create descriptor to describe creation of swap chain;
+    DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
+    swapChainDesc.Width = width;    // resolution width, 0 to obtain width from output window
+    swapChainDesc.Height = height;  // resolution height, 0 to obtain width from output window
+    swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;  // swap chain format, A four-component, 32-bit typeless format that supports 8 bits per channel including alpha.
+    swapChainDesc.Stereo = FALSE;   // if swap chain back buffer is stereo, if specified, so must be a flip-model swap chain
+    swapChainDesc.SampleDesc = { 1, 0 };    // sample desc that describes multisampling parameters, must be 1, 0 for flip model
+    swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;    // describes surface usage and cpu access to back buffer. Shader input or render target output
+    swapChainDesc.BufferCount = bufferCount;    // number of buffers in swap chain, must be 2 for flip presentation 
+    swapChainDesc.Scaling = DXGI_SCALING_STRETCH;   // idenifies resize behaviour of back buffer is not equal to output: stretch, none, aspect ratio stretch
+    swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;   // the presentation model and options for handeling buffer after present: sequential, discard, flip sequential and flip discard. Use flip for better performance.
+    swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;  // transparency behaviour: unspecified, premultiplied, straight or ignored.
+    swapChainDesc.Flags = CheckTearingSupport() ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0; // Allow tearing if tearing is supported (for variable sync)
+
+    // Create the swap chain from the descriptor
+    ComPtr<IDXGISwapChain1> swapChain1;
+    ThrowIfFailed(dxgiFactory4->CreateSwapChainForHwnd(
+        commandQueue.Get(),
+        hWnd,
+        &swapChainDesc,
+        nullptr,    // fullscreen descriptor, set to nullptr for a windowed swap chain
+        nullptr,    // pointer to idxgi output to restrict content to, set to nullptr
+        &swapChain1
+    ), "Couldn't create swap chain.\n");
+
+    // Disable alt+enter fullscreen, so borderless window fullscreen can be used
+    ThrowIfFailed(dxgiFactory4->MakeWindowAssociation(hWnd, DXGI_MWA_NO_ALT_ENTER), "Couldn't create swap chain.\n");
+
+    ThrowIfFailed(swapChain1.As(&dxgiSwapChain4), "Couldn't create swap chain.\n");
+
+    return dxgiSwapChain4;
+}
+
+
+Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> Application::CreateDescriptorHeap(Microsoft::WRL::ComPtr<ID3D12Device4> device, const D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors, UINT& descriptorSize)
+{
+    ComPtr<ID3D12DescriptorHeap> descriptorHeap;
+
+    // Create the descriptor heap descriptor used to describe its creation
+    D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+    desc.NumDescriptors = numDescriptors;   // number of descriptors in the heap
+    desc.Type = type;   //types of descriptors in the heap: CRV, SRV, UAV; SAMPLER; RTV; DSV
+    // additional flags for shader visible, indicating it can be bound on command list for reference by shaders, only for CBV, SRV, UAV; and samplers
+    // additional nodemask for multi-adapter nodes
+
+    // Create the descriptor heap from the descriptor
+    ThrowIfFailed(device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&descriptorHeap)));
+
+    descriptorSize = m_device->GetDescriptorHandleIncrementSize(type);
+
+    return descriptorHeap;
+}
+
+std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Application::m_frameCount> Application::CreateRenderTargetViews(Microsoft::WRL::ComPtr<ID3D12Device4> device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> rtvHeap, Microsoft::WRL::ComPtr<IDXGISwapChain3> swapChain, UINT& rtvDescriptorSize)
+{
+    std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Application::m_frameCount> renderTargets;
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(rtvHeap->GetCPUDescriptorHandleForHeapStart());
+
+    // Create a RTV for each frame.
+    for (UINT n = 0; n < m_frameCount; n++)
+    {
+        ThrowIfFailed(swapChain->GetBuffer(n, IID_PPV_ARGS(&renderTargets[n])));
+        device->CreateRenderTargetView(renderTargets[n].Get(), nullptr, rtvHandle);
+        rtvHandle.Offset(1, rtvDescriptorSize);
+    }
+
+    return renderTargets;
+}
+
+Microsoft::WRL::ComPtr<ID3D12CommandAllocator> Application::CreateCommandAllocator(const D3D12_COMMAND_LIST_TYPE type)
+{
+    Microsoft::WRL::ComPtr<ID3D12CommandAllocator> commandAllocator;
+
+    ThrowIfFailed(m_device->CreateCommandAllocator(type, IID_PPV_ARGS(&commandAllocator)), "Couldn't create command allocator.\n");
+
+    return commandAllocator;
+}
+
+
+bool Application::CheckTearingSupport()
+{
+
+    bool allowTearing = false;
+
+    // Create a DXGI 1.4 factory interface and query for the 1.5 interface
+    // as DXGI 1.5 may not support graphics debugging tools
+    ComPtr<IDXGIFactory4> factory4;
+    if (SUCCEEDED(CreateDXGIFactory1(IID_PPV_ARGS(&factory4))))
+    {
+        ComPtr<IDXGIFactory5> factory5;
+        if (SUCCEEDED(factory4.As(&factory5)))
+        {
+            // Query if tearing is supported
+            if (FAILED(factory5->CheckFeatureSupport(
+                DXGI_FEATURE_PRESENT_ALLOW_TEARING,
+                &allowTearing, sizeof(allowTearing))))
+            {
+                allowTearing = FALSE;
+            }
+        }
+    }
+
+    return allowTearing;
 }
 
 void Application::InitializeAssets()
