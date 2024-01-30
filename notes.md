@@ -48,3 +48,34 @@
 
 #### Fence
 - Synchronize CPU with GPU
+
+## Update
+- Update everything that should change per frame
+- Modify constant, vertex, index buffers
+
+## Render
+- Populate command list
+	- Reset command list allocator
+		- Re-use memory associated with command allocator
+	- Reset command list
+	- Set graphics root signature
+		- To use with current command list
+	- Set viewport and scissor rect
+	- Set *resource barrier*s
+		- Indicate back buffer to be used as render target
+	- Record commands into command list
+	- Indicate back buffer will be used to present after command list execution
+		- Set resource barrier
+	- Close command list
+- Execute command list
+- Present frame
+- Wait for GPU to finish
+	- Wait on fence
+
+### Resource Barrier
+- Manage resource transitions
+
+## Destroy
+- Wait for GPU to finish
+	- Wait on fence
+- Close event handle

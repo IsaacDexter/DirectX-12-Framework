@@ -1,13 +1,12 @@
 #include "stdafx.h"
+#include "Application.h"
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow);
 
 int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
 {
-	return 0;
-}
+	Application application(800, 600, L"Application");
+	application.Initialize();
 
-int main(int argc, char** argv)
-{
 	return 0;
 }

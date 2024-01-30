@@ -11,6 +11,8 @@
 
 // helper structures
 #include <d3dx12.h>
+#include <dxgi1_6.h>
+#pragma comment(lib, "dxgi.lib")
 
 // debug
 // tell hlsl compiler to include debug information into shader blob
@@ -18,7 +20,7 @@
 #define D3DCOMPILE_DEBUG 1
 #endif // _DEBUG
 
-
+#include "Helpers.h"
 
 // dx math
 #include <DirectXMath.h>
