@@ -11,8 +11,14 @@
 
 // helper structures
 #include <d3dx12.h>
+
+// dxgi factory
 #include <dxgi1_6.h>
 #pragma comment(lib, "dxgi.lib")
+
+// used to load precompiled shaders
+#include <d3dcompiler.h>
+#pragma comment(lib, "d3dcompiler.lib")
 
 // debug
 // tell hlsl compiler to include debug information into shader blob
