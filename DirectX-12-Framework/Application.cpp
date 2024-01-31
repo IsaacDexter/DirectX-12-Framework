@@ -570,12 +570,59 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Application::CreateRootSignature()
 {
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature;
 
+    // Check the highest version of root signature that can be used
+    D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
+
+    // This is the highest version the sample supports. If CheckFeatureSupport succeeds, the HighestVersion returned will not be greater than this.
+    featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
+
+    if (FAILED(m_device->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData))))
+    {
+        featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
+    }
+
+    // Describe descriptor tables to root signature
+    // Describe range of descriptor heap encompassed by descriptor table
+    CD3DX12_DESCRIPTOR_RANGE1 ranges[1];
+    ranges[0].Init(
+        D3D12_DESCRIPTOR_RANGE_TYPE_SRV,    // type of resources within the range
+        1,  // number of descriptors in the range
+        0,  // base shader register in the range
+        0,  // register space, typically 0
+        D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC // Descriptors and data are static and will not change (as they're loaded textures)
+    );
+
+    // Describe layout of descriptor tables to the root signature based on ranges
+    CD3DX12_ROOT_PARAMETER1 rootParameters[1];
+    rootParameters[0].InitAsDescriptorTable(
+        1,  // number of descriptors in the range
+        &ranges[0], // Descriptor range specified already 
+        D3D12_SHADER_VISIBILITY_PIXEL   // Specify that the pixel shader can access these textures
+    );
+
+    // define the static samplers, a free part of a root signature
+    // Texture samplers read textures through the GPU
+    D3D12_STATIC_SAMPLER_DESC sampler = {};
+    sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;    // Use point sampling
+    sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;   //How to handle texture coordinates outside of the range
+    sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+    sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+    sampler.MipLODBias = 0; // Offset from calculated mipmap level, for advanced LOD
+    sampler.MaxAnisotropy = 0;  // For anisotropic filtering
+    sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;   // Don't compare existing and new sampling data
+    sampler.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;  // Color to use for texture coordinates outside of range
+    sampler.MinLOD = 0.0f;  // don't limit mipmap quality, min or max
+    sampler.MaxLOD = D3D12_FLOAT32_MAX;
+    sampler.ShaderRegister = 0; // Binding to shader registers
+    sampler.RegisterSpace = 0;
+    sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;   // Specify the pixel shader can access this texture sampler
+
     // Create root signature descriptor 
     CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
     // Use version 1 of root signature layout
-    rootSignatureDesc.Init_1_0(
-        0, nullptr, // parameters array and number of elements
-        0, nullptr, // static samplers and their number
+    rootSignatureDesc.Init_1_1(
+        _countof(rootParameters), rootParameters, // pass layout of descriptor tables
+        1, &sampler, // Pass in static samplers for texture
         D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT    // Use input assembler, i.e. input layout and vertex buffer
     );
 
@@ -583,8 +630,9 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Application::CreateRootSignature()
     ComPtr<ID3DBlob> signature;
     ComPtr<ID3DBlob> error;
     // Serialize root signature so it can be created based on description
-    ThrowIfFailed(D3D12SerializeVersionedRootSignature(
+    ThrowIfFailed(D3DX12SerializeVersionedRootSignature(
         &rootSignatureDesc, // Description of root signature
+        featureData.HighestVersion, // Use the highest version of root signature we can
         &signature, // Memory block to acess the serialized root signature (i.e. to create it)
         &error  // Memory block to access serializer error messages
     ), "Couldn't serialize root signature.\n");

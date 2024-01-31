@@ -1,6 +1,7 @@
 #pragma once
 #include "stdafx.h"
 #include <array>
+#include <vector>
 
 class Window;
 
@@ -41,6 +42,8 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_commandQueue;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_rootSignature;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
+	// Shader resource view heap for accessing data in a resource (texture)
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvHeap;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pipelineState;
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_commandList;
 	UINT m_rtvDescriptorSize;
@@ -52,6 +55,8 @@ private:
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_vertexBuffer;
 	D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_texture;
+
 
 #pragma endregion
 
@@ -158,6 +163,7 @@ private:
 	*/
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> CreatePipelineStateObject(ID3DBlob* pVertexShaderBlob, ID3DBlob* pPixelShaderBlob);
 
+	std::vector<UINT8> GenerateTextureData();
 
 	void WaitForPreviousFrame();
 
