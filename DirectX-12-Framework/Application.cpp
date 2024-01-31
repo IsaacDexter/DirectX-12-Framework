@@ -1,5 +1,6 @@
 #include "Application.h"
 #include "Window.h"
+#include "DirectXHelpers.h"
 
 using namespace Microsoft::WRL;
 using namespace DirectX;
@@ -564,75 +565,53 @@ void Application::InitializeAssets()
     // the command list that references it has finished executing on the GPU.
     // We will flush the GPU at the end of this method to ensure the resource is not
     // prematurely destroyed.
-    ComPtr<ID3D12Resource> textureUploadHeap;
+    ComPtr<ID3D12Resource> uploadRes;
 
     // Create the texture
     {
-        // Describe and create a Texture2D.
-        D3D12_RESOURCE_DESC textureDesc = {};
-        textureDesc.MipLevels = 1;
-        textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-        textureDesc.Width = TextureWidth;
-        textureDesc.Height = TextureHeight;
-        textureDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-        textureDesc.DepthOrArraySize = 1;
-        textureDesc.SampleDesc.Count = 1;
-        textureDesc.SampleDesc.Quality = 0;
-        textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-
         {
-            auto hp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-            ThrowIfFailed(m_device->CreateCommittedResource(
-                &hp,
-                D3D12_HEAP_FLAG_NONE,
-                &textureDesc,
-                D3D12_RESOURCE_STATE_COPY_DEST,
-                nullptr,
-                IID_PPV_ARGS(&m_texture)));
+            std::unique_ptr<uint8_t[]> ddsData;
+            std::vector<D3D12_SUBRESOURCE_DATA> subresources;
+            ThrowIfFailed(
+                LoadDDSTextureFromFile(m_device.Get(), L"Assets/Grass.dds", m_texture.ReleaseAndGetAddressOf(),
+                    ddsData, subresources));
+
+            const UINT64 uploadBufferSize = GetRequiredIntermediateSize(m_texture.Get(), 0,
+                static_cast<UINT>(subresources.size()));
+
+            // Create the GPU upload buffer.
+            CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
+
+            auto desc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
+
+            ThrowIfFailed(
+                m_device->CreateCommittedResource(
+                    &heapProps,
+                    D3D12_HEAP_FLAG_NONE,
+                    &desc,
+                    D3D12_RESOURCE_STATE_GENERIC_READ,
+                    nullptr,
+                    IID_PPV_ARGS(uploadRes.GetAddressOf())));
+
+            
+            UpdateSubresources(m_commandList.Get(), m_texture.Get(), uploadRes.Get(),
+                0, 0, static_cast<UINT>(subresources.size()), subresources.data());
+
+            auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_texture.Get(),
+                D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+            m_commandList->ResourceBarrier(1, &barrier);
+
+            // Close the command list and execute it to begin the initial GPU setup.
+
+            ThrowIfFailed(m_commandList->Close());
+            ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
+            m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+
+            CreateShaderResourceView(m_device.Get(), m_texture.Get(), m_srvHeap->GetCPUDescriptorHandleForHeapStart());
         }
-        const UINT64 uploadBufferSize = GetRequiredIntermediateSize(m_texture.Get(), 0, 1);
-
-        // Create the GPU upload buffer.
-        {
-            auto hp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-            auto rd = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
-            ThrowIfFailed(m_device->CreateCommittedResource(
-                &hp,
-                D3D12_HEAP_FLAG_NONE,
-                &rd,
-                D3D12_RESOURCE_STATE_GENERIC_READ,
-                nullptr,
-                IID_PPV_ARGS(&textureUploadHeap)));
-        }
-
-        // Copy data to the intermediate upload heap and then schedule a copy 
-        // from the upload heap to the Texture2D.
-        std::vector<UINT8> texture = GenerateTextureData();
-
-        D3D12_SUBRESOURCE_DATA textureData = {};
-        textureData.pData = &texture[0];
-        textureData.RowPitch = TextureWidth * TexturePixelSize;
-        textureData.SlicePitch = textureData.RowPitch * TextureHeight;
-
-        UpdateSubresources(m_commandList.Get(), m_texture.Get(), textureUploadHeap.Get(), 0, 0, 1, &textureData);
-        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_texture.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-        m_commandList->ResourceBarrier(1, &barrier);
-
-        // Create SRV for the texture
-        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        srvDesc.Format = textureDesc.Format;
-        srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-        srvDesc.Texture2D.MipLevels = 1;
-        m_device->CreateShaderResourceView(m_texture.Get(), &srvDesc, m_srvHeap->GetCPUDescriptorHandleForHeapStart());
-
     }
 
 
-    // Close the command list and execute it to begin the initial GPU setup.
-    ThrowIfFailed(m_commandList->Close());
-    ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
-    m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 
     // Create synchronization objects
     {
