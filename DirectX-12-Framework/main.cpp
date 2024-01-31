@@ -37,6 +37,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		{
 			g_application->Update();
 			g_application->Render();
+			break;
+		}
+		case WM_DESTROY:
+		{
+			PostQuitMessage(0);
+			return (0);
 		}
 		default:
 		{

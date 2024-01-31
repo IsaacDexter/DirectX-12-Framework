@@ -147,6 +147,19 @@ private:
 
 	void InitializeAssets();
 
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> CreateRootSignature();
+
+	/** 
+	* Creates the pipeline state stream, serialized object, and object. 
+	* The various descs are pulled from their various functions.
+	* @param pVertexShaderBlob pointer to memory block containing vertex shader
+	* @param pPixelShaderBlob pointer to memory block containing pixel shader
+	* @returns ComPtr to the created PSO
+	*/
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> CreatePipelineStateObject(ID3DBlob* pVertexShaderBlob, ID3DBlob* pPixelShaderBlob);
+
+
+
 	void WaitForPreviousFrame();
 
 #pragma endregion

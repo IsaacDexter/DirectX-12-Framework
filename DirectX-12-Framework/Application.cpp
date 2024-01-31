@@ -8,6 +8,14 @@ Application::Application(HINSTANCE hInstance)
 {
     m_window = std::make_shared<Window>(hInstance);
     m_window->Show();
+
+    auto width = m_window->GetClientWidth();
+    auto height = m_window->GetClientHeight();
+
+    m_frameIndex = 0;
+    m_viewport = { 0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height) };
+    m_scissorRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
+    m_rtvDescriptorSize = 0;
 }
 
 void Application::Initialize()
@@ -468,34 +476,7 @@ void Application::InitializeAssets()
     */
 
     // Create empty root signature
-    // Create root signature descriptor 
-    CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-    // Use version 1 of root signature layout
-    rootSignatureDesc.Init_1_0(
-        0, nullptr, // parameters array and number of elements
-        0, nullptr, // static samplers and their number
-        D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT    // Use input assembler, i.e. input layout and vertex buffer
-    );
-
-
-    ComPtr<ID3DBlob> signature;
-    ComPtr<ID3DBlob> error;
-    // Serialize root signature so it can be created based on description
-    ThrowIfFailed(D3D12SerializeVersionedRootSignature(
-        &rootSignatureDesc, // Description of root signature
-        &signature, // Memory block to acess the serialized root signature (i.e. to create it)
-        &error  // Memory block to access serializer error messages
-    ), "Couldn't serialize root signature.\n");
-
-    // Create root signature from serialized one using the device
-    ThrowIfFailed(m_device->CreateRootSignature(
-        0,  // Set to 0 when using single GPU, for Multi-adapter systems
-        signature->GetBufferPointer(),  // Pointer to the data of the blob holding the serialized root signature
-        signature->GetBufferSize(), // The length of the serialized root signature
-        IID_PPV_ARGS(&m_rootSignature) // GUID of the root signature interface
-    ), "Failed to create root signature.\n");
-
-
+    m_rootSignature = CreateRootSignature();
 
     // Load compiled shaders
     // Load vertex shader from precompiled shader files
@@ -505,74 +486,8 @@ void Application::InitializeAssets()
     ComPtr<ID3DBlob> pixelShaderBlob;
     ThrowIfFailed(D3DReadFileToBlob(L"PixelShader.cso", &pixelShaderBlob), "Failed to load pixel shader.\n");
 
-
-    // Define vertex input layout, which describes a single element for the Input Assembler
-    D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
-    {
-        {
-            "POSITION", // HLSL semnantic name associated with this element
-            0,  // sematic index for the element. Only needed when there are multiple elements with the same semantic, i.e. matrices' components
-            DXGI_FORMAT_R32G32B32_FLOAT,    // format of the element data
-            0,  // identifier for the input slot for using multiple vertex buffers (0-15)
-            D3D12_APPEND_ALIGNED_ELEMENT,   // offset in bytes between each elements, defines current element directly after previous one
-            D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, // input data class for input slot: per-vertex/per-instance data
-            0   //number of instances to draw
-        },
-        { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
-    };
-
-    // Create the input layout desc, which defines the organization of input elements to the pipeline state desc
-    D3D12_INPUT_LAYOUT_DESC inputLayoutDesc;
-    inputLayoutDesc.pInputElementDescs = inputElementDescs;
-    inputLayoutDesc.NumElements = _countof(inputElementDescs);
-
-    // Describe depth stencil state for pipeline state object, to be default and disabled
-    CD3DX12_DEPTH_STENCIL_DESC1 dsDesc(D3D12_DEFAULT);
-    dsDesc.DepthEnable = false;
-    dsDesc.StencilEnable = false;
-
-    // Describe rasterizer state for pipeline with default values
-    CD3DX12_RASTERIZER_DESC rasterizerDesc(D3D12_DEFAULT);
-
-    // Describe blend state with default values
-    CD3DX12_BLEND_DESC blendDesc(D3D12_DEFAULT);
-
-    // define render target count and render target formats
-    
-    CD3DX12_RT_FORMAT_ARRAY rtvFormats;
-    rtvFormats.NumRenderTargets = 1;    // define render target count
-    std::fill(std::begin(rtvFormats.RTFormats), std::end(rtvFormats.RTFormats), DXGI_FORMAT_UNKNOWN);   // set to unknown format for unused render targets
-    rtvFormats.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;   // define render target format for the first (only) render target
-
-    // Default sampler mode without anti aliasing
-    DXGI_SAMPLE_DESC sampleDesc = {};
-    sampleDesc.Count = 1;
-    sampleDesc.Quality = 0;
-
-    // Create Graphics Pipeline State Object, which maintains shaders
-    // Describe PSO with Pipeline State Stream, to create the desc with more flexibility
-    CD3DX12_PIPELINE_STATE_STREAM pss;
-    pss.InputLayout = inputLayoutDesc;  // Input elements' layout
-    pss.pRootSignature = m_rootSignature.Get(); // Pointer to root signature
-    pss.VS = CD3DX12_SHADER_BYTECODE(vertexShaderBlob.Get());   // Create shader bytecode describing the vertex shader as it appears in memory
-    pss.PS = CD3DX12_SHADER_BYTECODE(pixelShaderBlob.Get());    // Create shader bytecode describing the pixel shader as it appears in memory
-    pss.RasterizerState = rasterizerDesc;   // describe rasterizer
-    pss.BlendState = blendDesc; // Describe blend state
-    pss.DepthStencilState = dsDesc;   // Describe depth-stencil state
-    pss.SampleMask = UINT_MAX;  // Define sample mask for blend state, max signifies point sampling 
-    pss.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE; // Set the primitive topology to use triangles to draw
-    pss.RTVFormats = rtvFormats;    // Render target count & formats
-    pss.SampleDesc = sampleDesc;
-
-    // Wrap Pipeline State Stream into a desc
-    D3D12_PIPELINE_STATE_STREAM_DESC pssDesc = {};
-    pssDesc.SizeInBytes = sizeof(pss);
-    pssDesc.pPipelineStateSubobjectStream = &pss;
-
-    // Pass descriptor into pipeline state to create PSO object
-    ThrowIfFailed(m_device->CreatePipelineState(&pssDesc, IID_PPV_ARGS(&m_pipelineState)), "Failed to create pipeline state object.\n");
-
-
+    // Create pipeline state object
+    m_pipelineState = CreatePipelineStateObject(vertexShaderBlob.Get(), pixelShaderBlob.Get());
 
     // Create command list
     // Create command allocator
@@ -650,6 +565,119 @@ void Application::InitializeAssets()
         WaitForPreviousFrame();
     }
 }
+
+Microsoft::WRL::ComPtr<ID3D12RootSignature> Application::CreateRootSignature()
+{
+    Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature;
+
+    // Create root signature descriptor 
+    CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
+    // Use version 1 of root signature layout
+    rootSignatureDesc.Init_1_0(
+        0, nullptr, // parameters array and number of elements
+        0, nullptr, // static samplers and their number
+        D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT    // Use input assembler, i.e. input layout and vertex buffer
+    );
+
+
+    ComPtr<ID3DBlob> signature;
+    ComPtr<ID3DBlob> error;
+    // Serialize root signature so it can be created based on description
+    ThrowIfFailed(D3D12SerializeVersionedRootSignature(
+        &rootSignatureDesc, // Description of root signature
+        &signature, // Memory block to acess the serialized root signature (i.e. to create it)
+        &error  // Memory block to access serializer error messages
+    ), "Couldn't serialize root signature.\n");
+
+    // Create root signature from serialized one using the device
+    ThrowIfFailed(m_device->CreateRootSignature(
+        0,  // Set to 0 when using single GPU, for Multi-adapter systems
+        signature->GetBufferPointer(),  // Pointer to the data of the blob holding the serialized root signature
+        signature->GetBufferSize(), // The length of the serialized root signature
+        IID_PPV_ARGS(&rootSignature) // GUID of the root signature interface
+    ), "Failed to create root signature.\n");
+
+    return rootSignature;
+}
+
+Microsoft::WRL::ComPtr<ID3D12PipelineState> Application::CreatePipelineStateObject(ID3DBlob* pVertexShaderBlob, ID3DBlob* pPixelShaderBlob)
+{
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState;
+
+
+
+    // Define vertex input layout, which describes a single element for the Input Assembler
+    // Define vertex input layout, which describes a single element for the Input Assembler
+    D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
+    {
+        {
+            "POSITION", // HLSL semnantic name associated with this element
+            0,  // sematic index for the element. Only needed when there are multiple elements with the same semantic, i.e. matrices' components
+            DXGI_FORMAT_R32G32B32_FLOAT,    // format of the element data
+            0,  // identifier for the input slot for using multiple vertex buffers (0-15)
+            D3D12_APPEND_ALIGNED_ELEMENT,   // offset in bytes between each elements, defines current element directly after previous one
+            D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, // input data class for input slot: per-vertex/per-instance data
+            0   //number of instances to draw
+        },
+        { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+    };
+
+    // Create the input layout desc, which defines the organization of input elements to the pipeline state desc
+    D3D12_INPUT_LAYOUT_DESC inputLayoutDesc;
+    inputLayoutDesc.pInputElementDescs = inputElementDescs;
+    inputLayoutDesc.NumElements = _countof(inputElementDescs);
+
+
+
+    // Describe depth stencil state for pipeline state object, to be default and disabled
+    CD3DX12_DEPTH_STENCIL_DESC1 dsDesc(D3D12_DEFAULT);
+    dsDesc.DepthEnable = false;
+    dsDesc.StencilEnable = false;
+
+    // Describe rasterizer state for pipeline with default values
+    CD3DX12_RASTERIZER_DESC rasterizerDesc(D3D12_DEFAULT);
+
+    // Describe blend state with default values
+    CD3DX12_BLEND_DESC blendDesc(D3D12_DEFAULT);
+
+    // define render target count and render target formats
+
+    CD3DX12_RT_FORMAT_ARRAY rtvFormats;
+    rtvFormats.NumRenderTargets = 1;    // define render target count
+    std::fill(std::begin(rtvFormats.RTFormats), std::end(rtvFormats.RTFormats), DXGI_FORMAT_UNKNOWN);   // set to unknown format for unused render targets
+    rtvFormats.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;   // define render target format for the first (only) render target
+
+    // Default sampler mode without anti aliasing
+    DXGI_SAMPLE_DESC sampleDesc = {};
+    sampleDesc.Count = 1;
+    sampleDesc.Quality = 0;
+
+    // Create Graphics Pipeline State Object, which maintains shaders
+    // Describe PSO with Pipeline State Stream, to create the desc with more flexibility
+    CD3DX12_PIPELINE_STATE_STREAM pss;
+    pss.InputLayout = inputLayoutDesc;  // Input elements' layout
+    pss.pRootSignature = m_rootSignature.Get(); // Pointer to root signature
+    pss.VS = CD3DX12_SHADER_BYTECODE(pVertexShaderBlob);   // Create shader bytecode describing the vertex shader as it appears in memory
+    pss.PS = CD3DX12_SHADER_BYTECODE(pPixelShaderBlob);    // Create shader bytecode describing the pixel shader as it appears in memory
+    pss.RasterizerState = rasterizerDesc;   // describe rasterizer
+    pss.BlendState = blendDesc; // Describe blend state
+    pss.DepthStencilState = dsDesc;   // Describe depth-stencil state
+    pss.SampleMask = UINT_MAX;  // Define sample mask for blend state, max signifies point sampling 
+    pss.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE; // Set the primitive topology to use triangles to draw
+    pss.RTVFormats = rtvFormats;    // Render target count & formats
+    pss.SampleDesc = sampleDesc;
+
+    // Wrap Pipeline State Stream into a desc
+    D3D12_PIPELINE_STATE_STREAM_DESC pssDesc = {};
+    pssDesc.SizeInBytes = sizeof(pss);
+    pssDesc.pPipelineStateSubobjectStream = &pss;
+
+    // Pass descriptor into pipeline state to create PSO object
+    ThrowIfFailed(m_device->CreatePipelineState(&pssDesc, IID_PPV_ARGS(&pipelineState)), "Failed to create pipeline state object.\n");
+
+    return pipelineState;
+}
+
 
 void Application::WaitForPreviousFrame()
 
