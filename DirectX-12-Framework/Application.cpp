@@ -16,6 +16,56 @@ void Application::Initialize()
 	// Initialize Assets
 	InitializePipeline();
 	InitializeAssets();
+
+}
+
+void Application::Update()
+{
+}
+
+void Application::Render()
+{
+    /*
+    - Populate command list
+	    - Reset command list allocator
+		    - Re-use memory associated with command allocator
+	    - Reset command list
+	    - Set graphics root signature
+		    - To use with current command list
+	    - Set viewport and scissor rect
+	    - Set *resource barrier*s
+		    - Indicate back buffer to be used as render target
+	    - Record commands into command list
+	    - Indicate back buffer will be used to present after command list execution
+		    - Set resource barrier
+	    - Close command list
+    - Execute command list
+    - Present frame
+    - Wait for GPU to finish
+	    - Wait on fence
+    */
+    
+    // Record all rendering commands into the command list
+    PopulateCommandList();
+
+    // Execute the command list
+    // Put the command list into an array (of one) for execution on the queue
+    ID3D12CommandList* commandLists[] = { m_commandList.Get() };
+    m_commandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
+
+    // Present the frame
+    ThrowIfFailed(m_swapChain->Present(1, 0), "Failed to present frame.\n");
+
+    // Wait for GPU to finish
+    WaitForPreviousFrame();
+}
+
+void Application::Destroy()
+{
+    // Wait for the GPU to be done with all resources.
+    WaitForPreviousFrame();
+
+    CloseHandle(m_fenceEvent);
 }
 
 /*
@@ -35,6 +85,7 @@ void Application::InitializePipeline()
     // create the device
     auto hardwareAdapter = GetAdapter(m_useWarpDevice);
     m_device = CreateDevice(hardwareAdapter);
+    //CreateDevice();
 
     // create the direct command queue
     m_commandQueue = CreateCommandQueue(m_device, D3D12_COMMAND_LIST_TYPE_DIRECT);
@@ -45,8 +96,6 @@ void Application::InitializePipeline()
     m_rtvHeap = CreateDescriptorHeap(m_device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, m_frameCount, m_rtvDescriptorSize);
 
     m_renderTargets = CreateRenderTargetViews(m_device, m_rtvHeap, m_swapChain, m_rtvDescriptorSize);
-
-    m_commandAllocator = CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT);
 }
 
 
@@ -111,6 +160,30 @@ Microsoft::WRL::ComPtr<IDXGIAdapter4> Application::GetAdapter(bool useWarpDevice
     return dxgiAdapter4;
 }
 
+void Application::GetHardwareAdapter(IDXGIFactory4* pFactory, IDXGIAdapter1** ppAdapter)
+{
+    *ppAdapter = nullptr;
+    for (UINT adapterIndex = 0; ; ++adapterIndex)
+    {
+        IDXGIAdapter1* pAdapter = nullptr;
+        if (DXGI_ERROR_NOT_FOUND == pFactory->EnumAdapters1(adapterIndex, &pAdapter))
+        {
+            // No more adapters to enumerate.
+            break;
+        }
+
+        // Check to see if the adapter supports Direct3D 12, but don't create the
+        // actual device yet.
+        if (SUCCEEDED(D3D12CreateDevice(pAdapter, D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr)))
+        {
+            *ppAdapter = pAdapter;
+            return;
+        }
+        pAdapter->Release();
+    }
+
+}
+
 Microsoft::WRL::ComPtr<ID3D12Device4> Application::CreateDevice(Microsoft::WRL::ComPtr<IDXGIAdapter4> adapter)
 {
     ComPtr<ID3D12Device4> d3d12Device3;
@@ -161,6 +234,35 @@ Microsoft::WRL::ComPtr<ID3D12Device4> Application::CreateDevice(Microsoft::WRL::
 #endif // DEBUG
 
     return d3d12Device3;
+}
+
+void Application::CreateDevice()
+{
+    ComPtr<IDXGIFactory4> factory;
+    ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&factory)));
+
+    if (m_useWarpDevice)
+    {
+        ComPtr<IDXGIAdapter> warpAdapter;
+        ThrowIfFailed(factory->EnumWarpAdapter(IID_PPV_ARGS(&warpAdapter)));
+
+        ThrowIfFailed(D3D12CreateDevice(
+            warpAdapter.Get(),
+            D3D_FEATURE_LEVEL_11_0,
+            IID_PPV_ARGS(&m_device)
+        ));
+    }
+    else
+    {
+        ComPtr<IDXGIAdapter1> hardwareAdapter;
+        GetHardwareAdapter(factory.Get(), &hardwareAdapter);
+
+        ThrowIfFailed(D3D12CreateDevice(
+            hardwareAdapter.Get(),
+            D3D_FEATURE_LEVEL_11_0,
+            IID_PPV_ARGS(&m_device)
+        ));
+    }
 }
 
 Microsoft::WRL::ComPtr<ID3D12CommandQueue> Application::CreateCommandQueue(Microsoft::WRL::ComPtr<ID3D12Device> device, const D3D12_COMMAND_LIST_TYPE type)
@@ -260,15 +362,65 @@ std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Application::m_frameCount> Ap
     return renderTargets;
 }
 
-Microsoft::WRL::ComPtr<ID3D12CommandAllocator> Application::CreateCommandAllocator(const D3D12_COMMAND_LIST_TYPE type)
+
+void Application::UpdateBufferResource(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource, size_t numElements, size_t elementSize, const void* bufferData, D3D12_RESOURCE_FLAGS flags)
 {
-    Microsoft::WRL::ComPtr<ID3D12CommandAllocator> commandAllocator;
+    // size of the buffer in bytes
+    size_t bufferSize = numElements * elementSize;
 
-    ThrowIfFailed(m_device->CreateCommandAllocator(type, IID_PPV_ARGS(&commandAllocator)), "Couldn't create command allocator.\n");
+    // Create CPU resource in committed memory large enough to store the buffer
+    // Create resource and implicit heap large enough to store it, mapping the resource to the heap
 
-    return commandAllocator;
+    // create heap properties structure that provides properties for the destination resource's heap
+    auto destHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+    // pointer to resource desc that describes the destinationresource
+    auto destResourceDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize, flags);
+
+    ThrowIfFailed(m_device->CreateCommittedResource(
+        &destHeapProperties,
+        D3D12_HEAP_FLAG_NONE,   // heap option flags
+        &destResourceDesc,
+        D3D12_RESOURCE_STATE_COPY_DEST, // state of the resource
+        nullptr,    // describes default value for a clear colour
+        IID_PPV_ARGS(pDestinationResource)  // globally unique identifier for resource interface
+    ));
+
+    // create resource used to transfer CPU buffer data into GPU memory
+    // create intermediate buffer resource using upload heap
+    // so long as bufferData isn't NULL
+    if (bufferData)
+    {
+        // heap properties structure that provides properties for the intermediate resource's heap
+        auto interHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+        // pointer to resource desc that describes the intermediate resource
+        auto interResourceDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize);
+        ThrowIfFailed(m_device->CreateCommittedResource(
+            &interHeapProperties,
+            D3D12_HEAP_FLAG_NONE,   // heap option flags
+            &interResourceDesc,
+            D3D12_RESOURCE_STATE_GENERIC_READ, // state of the resource
+            nullptr,    // describes default value for a clear colour
+            IID_PPV_ARGS(pIntermediateResource)  // globally unique identifier for resource interface
+        ));
+
+        // transfer CPU buffer data to GPU resources
+        // describe subresource data to be uploaded to GPU resource
+        D3D12_SUBRESOURCE_DATA subresourceData = {};
+        subresourceData.pData = bufferData; // pointer to memory block containing subresource data
+        subresourceData.RowPitch = bufferSize;  // row width in bytes of the subresource data
+        subresourceData.SlicePitch = subresourceData.RowPitch;  // depth width in bytes of the subresource data
+        // Upload CPU buffer data to GPU resource in a default heap using an intermediate buffer
+        UpdateSubresources(
+            commandList.Get(),  // pointer for the command list interface to upload with
+            *pDestinationResource,  // destination resource
+            *pIntermediateResource, // intermediate resource
+            0,  // offset in bytes to intermediate resource
+            0,  // index of first subresource in the resource, always 0 for buffer resources
+            1,  // NumSubresources number of subresources  in the resource to be updated, always 1 for buffer resources
+            &subresourceData    // pointer to array of length NumSubresources of pointers to descriptions of subresource data used for the update
+        );
+    }
 }
-
 
 bool Application::CheckTearingSupport()
 {
@@ -354,7 +506,6 @@ void Application::InitializeAssets()
     ThrowIfFailed(D3DReadFileToBlob(L"PixelShader.cso", &pixelShaderBlob), "Failed to load pixel shader.\n");
 
 
-
     // Define vertex input layout, which describes a single element for the Input Assembler
     D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
     {
@@ -390,7 +541,7 @@ void Application::InitializeAssets()
     
     CD3DX12_RT_FORMAT_ARRAY rtvFormats;
     rtvFormats.NumRenderTargets = 1;    // define render target count
-    std::fill(std::begin(rtvFormats.RTFormats), std::end(rtvFormats.RTFormats), DXGI_FORMAT_UNKNOWN);
+    std::fill(std::begin(rtvFormats.RTFormats), std::end(rtvFormats.RTFormats), DXGI_FORMAT_UNKNOWN);   // set to unknown format for unused render targets
     rtvFormats.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;   // define render target format for the first (only) render target
 
     // Default sampler mode without anti aliasing
@@ -422,4 +573,142 @@ void Application::InitializeAssets()
     ThrowIfFailed(m_device->CreatePipelineState(&pssDesc, IID_PPV_ARGS(&m_pipelineState)), "Failed to create pipeline state object.\n");
 
 
+
+    // Create command list
+    // Create command allocator
+    ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocator)), "Couldn't create command allocator.\n");
+    // Create command list, and set it to closed state
+    ThrowIfFailed(m_device->CreateCommandList(
+        0,  // 0 for single GPU, for multi-adapter
+        D3D12_COMMAND_LIST_TYPE_DIRECT, // Create a direct command list that the GPU can execute
+        m_commandAllocator.Get(),   // Command allocator associated with this list
+        m_pipelineState.Get(),  // Pipeline state
+        IID_PPV_ARGS(&m_commandList)
+    ), "Failed to create command list.\n");
+    m_commandList->Close();
+
+
+    // Create vertex buffer
+    {
+        // Define the geometry for a triangle.
+        auto aspectRatio = m_window->GetAspectRatio();
+        Vertex triangleVertices[] =
+        {
+            { { 0.0f, 0.25f * aspectRatio, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+            { { 0.25f, -0.25f * aspectRatio, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+            { { -0.25f, -0.25f * aspectRatio, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } }
+        };
+
+        const UINT vbSize = sizeof(triangleVertices);
+
+        // create upload heap to transfer vertex buffers. (not recommended)
+        CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
+        // Create vertex buffer description
+        auto vbDesc = CD3DX12_RESOURCE_DESC::Buffer(vbSize);
+        // Create the vertex buffer as a committed resource and an implicit heap big enough to contain it, and commit the resource to the heap.
+        ThrowIfFailed(m_device->CreateCommittedResource(
+            &heapProps,  // The properties of the implicit heap
+            D3D12_HEAP_FLAG_NONE,
+            &vbDesc,    // Descriptor for the resource
+            D3D12_RESOURCE_STATE_GENERIC_READ,  // Required heap state for an upload heap
+            nullptr,    // Optimized clear value for render target resources
+            IID_PPV_ARGS(&m_vertexBuffer)   // GUID of vertex buffer interface
+        ), "Failed to create vertex buffer.\n");
+
+        // Copy vertex data into the vertex buffer
+        UINT8* pVertexDataBegin;
+        CD3DX12_RANGE readRange(0, 0);        // Resource not intended to be read on CPU
+        ThrowIfFailed(m_vertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin)), "Failed to copy vertex data into vertex buffer.\n");
+        memcpy(pVertexDataBegin, triangleVertices, sizeof(triangleVertices));
+        m_vertexBuffer->Unmap(0, nullptr);
+
+        // TODO: create a copy command queue and call UpdateBufferResource
+
+        // create vertex buffer view, used to tell input assembler where vertices are stored in GPU memory
+        m_vertexBufferView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress(); // specify D3D12_GPU_VIRTUAL_ADDRESS that identifies buffer address
+        m_vertexBufferView.SizeInBytes = sizeof(triangleVertices);    // specify size of the buffer in bytes
+        m_vertexBufferView.StrideInBytes = sizeof(Vertex);  // specify size in bytes of each vertex entry in buffer 
+    }
+
+
+
+    // Create synchronization objects
+    {
+        ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
+        m_fenceValue = 1;
+
+        // Create an event handle to use for frame synchronization.
+        m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+        if (m_fenceEvent == nullptr)
+        {
+            ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
+        }
+
+        // Wait for the command list to execute; we are reusing the same command 
+        // list in our main loop but for now, we just want to wait for setup to 
+        // complete before continuing.
+        WaitForPreviousFrame();
+    }
 }
+
+void Application::WaitForPreviousFrame()
+
+{
+    // WAITING FOR THE FRAME TO COMPLETE BEFORE CONTINUING IS NOT BEST PRACTICE.
+    // This is code implemented as such for simplicity. The D3D12HelloFrameBuffering
+    // sample illustrates how to use fences for efficient resource usage and to
+    // maximize GPU utilization.
+
+    // Signal and increment the fence value.
+    const UINT64 fence = m_fenceValue;
+    ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), fence));
+    m_fenceValue++;
+
+    // Wait until the previous frame is finished.
+    if (m_fence->GetCompletedValue() < fence)
+    {
+        ThrowIfFailed(m_fence->SetEventOnCompletion(fence, m_fenceEvent));
+        WaitForSingleObject(m_fenceEvent, INFINITE);
+    }
+
+    m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+}
+
+void Application::PopulateCommandList()
+{
+    // Command list allocators can only be reset when the associated 
+    // command lists have finished execution on the GPU; apps should use 
+    // fences to determine GPU execution progress.
+    ThrowIfFailed(m_commandAllocator->Reset());
+
+    // However, when ExecuteCommandList() is called on a particular command 
+    // list, that command list can then be reset at any time and must be before 
+    // re-recording.
+    ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get()));
+
+    // Set necessary state.
+    m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+    m_commandList->RSSetViewports(1, &m_viewport);
+    m_commandList->RSSetScissorRects(1, &m_scissorRect);
+
+    // Indicate that the back buffer will be used as a render target.
+    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+    m_commandList->ResourceBarrier(1, &barrier);
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex, m_rtvDescriptorSize);
+    m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+
+    // Record commands.
+    const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
+    m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+    m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
+    m_commandList->DrawInstanced(3, 1, 0, 0);
+
+    // Indicate that the back buffer will now be used to present.
+    barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+    m_commandList->ResourceBarrier(1, &barrier);
+
+    ThrowIfFailed(m_commandList->Close());
+}
+

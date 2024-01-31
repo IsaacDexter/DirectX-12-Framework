@@ -15,6 +15,7 @@
 // dxgi factory
 #include <dxgi1_6.h>
 #pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "dxguid.lib")
 
 // used to load precompiled shaders
 #include <d3dcompiler.h>

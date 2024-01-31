@@ -24,6 +24,12 @@ public:
 private:
 	static const UINT m_frameCount = 2;
 
+	struct Vertex
+	{
+		DirectX::XMFLOAT3 position;
+		DirectX::XMFLOAT4 color;
+	};
+
 #pragma region Pipeline
 
 	D3D12_VIEWPORT m_viewport;
@@ -72,6 +78,8 @@ private:
 	* @returns pointer to the adapter
 	*/
 	Microsoft::WRL::ComPtr<IDXGIAdapter4> GetAdapter(bool useWarpDevice);
+
+	void GetHardwareAdapter(IDXGIFactory4* pFactory, IDXGIAdapter1** ppAdapter);
 	/**
 	* Create D3D12 device, used to create resources
 	* @param Adapter from GetAdapter
@@ -79,6 +87,7 @@ private:
 	*/
 	Microsoft::WRL::ComPtr<ID3D12Device4> CreateDevice(Microsoft::WRL::ComPtr<IDXGIAdapter4> adapter);
 
+	void CreateDevice();
 	/**
 	* Desribe and create a command queue
 	* @param type the type of command queue to create
@@ -108,7 +117,27 @@ private:
 
 	std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Application::m_frameCount> CreateRenderTargetViews(Microsoft::WRL::ComPtr<ID3D12Device4> device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> rtvHeap, Microsoft::WRL::ComPtr<IDXGISwapChain3> swapChain, UINT& rtvDescriptorSize);
 
-	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> CreateCommandAllocator(const D3D12_COMMAND_LIST_TYPE type);
+	/**
+	* Create a resource large enough to hold buffer data
+	* Create an intermediate upload buffer to transfer data from CPU to GPU memory
+	* @param commandList The command list to transfer buffer data with
+	* @param pDestinationResource Created destination resource large enough to hold buffer data
+	* Cannot be deleted until resource has been fully uploaded to destination
+	* @param pIntermediateResource Created intermediate upload buffer to transfer data from CPU to GPU memory.
+	* @param numElements CPU buffer data to be transfered to GPU resource
+	* @param elementSize CPU buffer data to be transfered to GPU resource
+	* @param bufferData CPU buffer data to be transfered to GPU resource
+	* @param flags Additional flags to create the buffer resource
+	*/
+	void UpdateBufferResource(
+		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList2> commandList,
+		ID3D12Resource** pDestinationResource,
+		ID3D12Resource** pIntermediateResource,
+		size_t numElements,
+		size_t elementSize,
+		const void* bufferData,
+		D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE
+	);
 
 	/**
 	* Check if screen tearing should be allowed for variable refresh displays
@@ -118,12 +147,13 @@ private:
 
 	void InitializeAssets();
 
+	void WaitForPreviousFrame();
+
 #pragma endregion
 
 #pragma region Rendering
 
 	void PopulateCommandList();
-	void WaitForPreviousFrame();
 
 #pragma endregion
 };

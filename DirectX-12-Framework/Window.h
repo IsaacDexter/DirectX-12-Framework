@@ -87,6 +87,11 @@ public:
 	{
 		return g_clientHeight;
 	}
+
+	float GetAspectRatio()
+	{
+		return static_cast<float>(g_clientWidth) / static_cast<float>(g_clientHeight);
+	}
 	
 	void SetClientWidth(uint32_t width);
 
