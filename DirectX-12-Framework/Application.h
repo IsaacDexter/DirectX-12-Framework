@@ -2,6 +2,7 @@
 #include "stdafx.h"
 #include <array>
 #include <vector>
+#include "DDSTextureLoader.h"
 
 class Window;
 
@@ -24,6 +25,9 @@ public:
 
 private:
 	static const UINT m_frameCount = 2;
+	static const UINT TextureWidth = 256;
+	static const UINT TextureHeight = 256;
+	static const UINT TexturePixelSize = 4;    // The number of bytes used to represent a pixel in the texture.
 
 	struct Vertex
 	{
@@ -135,11 +139,10 @@ private:
 	* @param flags Additional flags to create the buffer resource
 	*/
 	void UpdateBufferResource(
-		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList2> commandList,
+		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandList,
 		ID3D12Resource** pDestinationResource,
 		ID3D12Resource** pIntermediateResource,
 		size_t numElements,
-		size_t elementSize,
 		const void* bufferData,
 		D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE
 	);
