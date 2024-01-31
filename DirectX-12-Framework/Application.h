@@ -159,7 +159,6 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> CreatePipelineStateObject(ID3DBlob* pVertexShaderBlob, ID3DBlob* pPixelShaderBlob);
 
 
-
 	void WaitForPreviousFrame();
 
 #pragma endregion
