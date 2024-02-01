@@ -31,10 +31,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	if (g_application != nullptr)
 	{
+		extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+		if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
+			return true;
+		OutputDebugStringA("New MSG.\n");
 		switch (msg)
 		{
 		case WM_PAINT:
 		{
+			OutputDebugStringA("New Frame\n");
 			g_application->Update();
 			g_application->Render();
 			break;
@@ -43,6 +48,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		{
 			PostQuitMessage(0);
 			return (0);
+			break;
 		}
 		default:
 		{
