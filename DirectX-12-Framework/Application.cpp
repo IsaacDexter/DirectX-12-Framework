@@ -30,6 +30,40 @@ void Application::Initialize()
 
 void Application::Update()
 {
+    // Set up timers and frame counters
+    ///<summary>number of times a frame was rendered to the screen since last frameRate was outputted</summary>
+    static uint64_t frameCounter = 0;
+    ///<summary>number of seconds passed since last frameRate was outputted</summary>
+    static double elapsedSeconds = 0.0;
+    ///<summary>clock used to sample time points</summary>
+    static std::chrono::high_resolution_clock clock;
+    ///<summary>initial point in time, the time at the last frame</summary>
+    static auto timeLast = clock.now();
+
+    // calculate the new deltaTime
+    frameCounter++;
+    auto timeNow = clock.now();
+    auto deltaTime = timeNow - timeLast;
+    timeLast = timeNow;
+
+    // add the delta time, in seconds, since the last frame
+    elapsedSeconds += deltaTime.count() * 1e-9;
+
+    // output the FPS
+    // if it's been a second...
+    if (elapsedSeconds > 20.0)
+    {
+
+        auto fps = frameCounter / elapsedSeconds;
+        char buffer[500];
+        sprintf_s(buffer, 500, "FPS: %f\n", fps);
+        OutputDebugStringA(buffer);
+
+        // reset counters
+        frameCounter = 0;
+        elapsedSeconds = 0.0;
+    }
+
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
@@ -128,6 +162,12 @@ void Application::InitializePipeline()
 
 
     m_renderTargets = CreateRenderTargetViews(m_device, m_rtvHeap, m_swapChain, m_rtvDescriptorSize);
+
+    // Create command allocator
+    ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocator)), "Couldn't create command allocator.\n");
+    // Create bundle allocator
+    ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_BUNDLE, IID_PPV_ARGS(&m_bundleAllocator)), "Couldn't create command bundle.\n");
+
 }
 
 
@@ -515,8 +555,6 @@ void Application::InitializeAssets()
     m_pipelineState = CreatePipelineStateObject(vertexShaderBlob.Get(), pixelShaderBlob.Get());
 
     // Create command list
-    // Create command allocator
-    ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocator)), "Couldn't create command allocator.\n");
     // Create command list, and set it to closed state
     ThrowIfFailed(m_device->CreateCommandList(
         0,  // 0 for single GPU, for multi-adapter
@@ -567,6 +605,16 @@ void Application::InitializeAssets()
         m_vertexBufferView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress(); // specify D3D12_GPU_VIRTUAL_ADDRESS that identifies buffer address
         m_vertexBufferView.SizeInBytes = sizeof(triangleVertices);    // specify size of the buffer in bytes
         m_vertexBufferView.StrideInBytes = sizeof(Vertex);  // specify size in bytes of each vertex entry in buffer 
+    }
+
+    // Create and record the bundle for drawing the triangle
+    {
+        ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_BUNDLE, m_bundleAllocator.Get(), m_pipelineState.Get(), IID_PPV_ARGS(&m_bundle)));
+        m_bundle->SetGraphicsRootSignature(m_rootSignature.Get());
+        m_bundle->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        m_bundle->IASetVertexBuffers(0, 1, &m_vertexBufferView);
+        m_bundle->DrawInstanced(3, 1, 0, 0);
+        ThrowIfFailed(m_bundle->Close());
     }
 
     // Note: ComPtr's are CPU objects but this resource needs to stay in scope until
@@ -913,9 +961,11 @@ void Application::PopulateCommandList()
     // Record commands.
     const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
     m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
-    m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
-    m_commandList->DrawInstanced(3, 1, 0, 0);
+
+
+    m_commandList->ExecuteBundle(m_bundle.Get());
+
+
 
     // render Dear ImGui
     {

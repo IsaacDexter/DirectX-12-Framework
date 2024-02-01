@@ -24,7 +24,6 @@ int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdL
 		}
 		else
 		{
-			OutputDebugStringA("New Frame\n");
 			g_application->Update();
 			g_application->Render();
 		}
@@ -40,12 +39,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 		if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
 			return true;
-		OutputDebugStringA("New MSG.\n");
 		switch (msg)
 		{
 		case WM_PAINT:
 		{
-			OutputDebugStringA("New Frame\n");
 			g_application->Update();
 			g_application->Render();
 			break;
