@@ -22,6 +22,12 @@ int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdL
 			::TranslateMessage(&msg);
 			::DispatchMessage(&msg);
 		}
+		else
+		{
+			OutputDebugStringA("New Frame\n");
+			g_application->Update();
+			g_application->Render();
+		}
 	}
 
 	return 0;
