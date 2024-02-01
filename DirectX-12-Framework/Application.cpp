@@ -16,6 +16,9 @@ Application::Application(HINSTANCE hInstance)
     m_viewport = { 0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height) };
     m_scissorRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
     m_rtvDescriptorSize = 0;
+
+    m_pCbvDataBegin = nullptr;
+    m_constantBufferData = {};
 }
 
 void Application::Initialize()
@@ -30,8 +33,10 @@ void Application::Initialize()
 
 void Application::Update()
 {
-    // Set up timers and frame counters
-    ///<summary>number of times a frame was rendered to the screen since last frameRate was outputted</summary>
+    // Log FPS
+
+        // Set up timers and frame counters
+        ///<summary>number of times a frame was rendered to the screen since last frameRate was outputted</summary>
     static uint64_t frameCounter = 0;
     ///<summary>number of seconds passed since last frameRate was outputted</summary>
     static double elapsedSeconds = 0.0;
@@ -43,15 +48,16 @@ void Application::Update()
     // calculate the new deltaTime
     frameCounter++;
     auto timeNow = clock.now();
-    auto deltaTime = timeNow - timeLast;
+    auto timeSince = timeNow - timeLast;
     timeLast = timeNow;
 
     // add the delta time, in seconds, since the last frame
-    elapsedSeconds += deltaTime.count() * 1e-9;
+    auto deltaTime = timeSince.count() * 1e-9;
+    elapsedSeconds += deltaTime;
 
     // output the FPS
     // if it's been a second...
-    if (elapsedSeconds > 20.0)
+    if (elapsedSeconds > 10.0)
     {
 
         auto fps = frameCounter / elapsedSeconds;
@@ -64,10 +70,32 @@ void Application::Update()
         elapsedSeconds = 0.0;
     }
 
-    ImGui_ImplDX12_NewFrame();
-    ImGui_ImplWin32_NewFrame();
-    ImGui::NewFrame();
-    ImGui::ShowDemoWindow(); // Show demo window! :)
+
+    // Update triangle to animate through constant buffer
+    {
+        const float translationSpeed = 0.5f;
+        const float offsetBounds = 1.25f;
+
+        // translate the triangle in the x
+        m_constantBufferData.offset.x += (translationSpeed * deltaTime);
+        // wrap within the bounds of the screen
+        if (m_constantBufferData.offset.x > offsetBounds)
+        {
+            m_constantBufferData.offset.x = -offsetBounds;
+        }
+        // Update the constant buffer pointer with new data
+        memcpy(m_pCbvDataBegin, &m_constantBufferData, sizeof(m_constantBufferData));
+
+    }
+
+
+    // Start new Dear ImGui frame
+    {
+        ImGui_ImplDX12_NewFrame();
+        ImGui_ImplWin32_NewFrame();
+        ImGui::NewFrame();
+        ImGui::ShowDemoWindow(); // Show demo window! :)
+    }
 }
 
 void Application::Render()
@@ -143,19 +171,35 @@ void Application::InitializePipeline()
 
     m_swapChain = CreateSwapChain(m_window->GetHWND(), m_commandQueue, m_window->GetClientWidth(), m_window->GetClientHeight(), m_frameCount);
 
-    // create RTV descriptor heap
-    D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
-    rtvHeapDesc.NumDescriptors = m_frameCount;
-    rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-    rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-    ThrowIfFailed(m_device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_rtvHeap)));
+    // Create descriptor heaps
+    {
+        // Describe and create Render Target View (RTV) descriptor heap
+        {
+            D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
+            rtvHeapDesc.NumDescriptors = m_frameCount;
+            rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;  //RTV type
+            rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;    // This heap needs no binding to pipeline
+            ThrowIfFailed(m_device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_rtvHeap)));
+        }
 
-    // Describe and create a shader resource view (SRV) heap for the texture.
-    D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-    srvHeapDesc.NumDescriptors = 1;
-    srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    ThrowIfFailed(m_device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_srvHeap)));
+        // Describe and create a Shader Resource View (SRV) heap for the texture.
+        {
+            D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
+            srvHeapDesc.NumDescriptors = 1;
+            srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;  // SRV type
+            srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  // Allow this heap to be bound to the pipeline
+            ThrowIfFailed(m_device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_srvHeap)));
+        }
+    
+        // Describe and create Constant Buffer View (CBV) descriptor heap
+        {
+            D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc = {};
+            cbvHeapDesc.NumDescriptors = 1;
+            cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;  // CBV type
+            cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  // allow this heap to be bound to the pipeline
+            ThrowIfFailed(m_device->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_cbvHeap)));
+        }
+    }
 
     m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
@@ -607,6 +651,40 @@ void Application::InitializeAssets()
         m_vertexBufferView.StrideInBytes = sizeof(Vertex);  // specify size in bytes of each vertex entry in buffer 
     }
 
+    // Create the constant buffer
+    {
+        const UINT constantBufferSize = sizeof(SceneConstantBuffer);
+        // get the size of the constant buffer, which is already asserted to be 256-byte aligned
+        {
+            // Create upload heap to transfer constant buffer data to GPU
+            auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+            auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(constantBufferSize);
+
+            // Create the constant buffer in its own implicit heap
+            ThrowIfFailed(m_device->CreateCommittedResource(
+                &heapProps,  // The properties of the implicit heap
+                D3D12_HEAP_FLAG_NONE,
+                &bufferDesc,    // Descriptor for the resource
+                D3D12_RESOURCE_STATE_GENERIC_READ,  // Required heap state for an upload heap
+                nullptr,    // Optimized clear value for render target resources
+                IID_PPV_ARGS(&m_constantBuffer)   // GUID of vertex buffer interface
+            ), "Failed to create constant buffer.\n");
+        }
+
+        // Describe and create constant buffer view
+        D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+        cbvDesc.BufferLocation = m_constantBuffer->GetGPUVirtualAddress();  //GPU virtual address of constant buffer
+        cbvDesc.SizeInBytes = constantBufferSize;   // Size of constant buffer
+        // Create the constant buffer view, i.e. formatted constant buffer data and bind it to the CBV heap
+        m_device->CreateConstantBufferView(&cbvDesc, m_cbvHeap->GetCPUDescriptorHandleForHeapStart());
+
+        // Map the constant buffer and initialize it
+        // This can be mapped for the lifteime of the resource, isnt unmapped until app closes
+        CD3DX12_RANGE readRange(0, 0);  // Range of reading resource on the CPU, which we needn't do
+        ThrowIfFailed(m_constantBuffer->Map(0, &readRange, reinterpret_cast<void**>(&m_pCbvDataBegin)), "Failed to map constant buffer.\n");
+        memcpy(m_pCbvDataBegin, &m_constantBufferData, sizeof(m_constantBufferData));   // map constant buffer data into the pointer to the beginning
+    }
+
     // Create and record the bundle for drawing the triangle
     {
         ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_BUNDLE, m_bundleAllocator.Get(), m_pipelineState.Get(), IID_PPV_ARGS(&m_bundle)));
@@ -724,7 +802,8 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Application::CreateRootSignature()
 
     // Describe descriptor tables to root signature
     // Describe range of descriptor heap encompassed by descriptor table
-    CD3DX12_DESCRIPTOR_RANGE1 ranges[1];
+    CD3DX12_DESCRIPTOR_RANGE1 ranges[2];
+    // SRV range
     ranges[0].Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_SRV,    // type of resources within the range
         1,  // number of descriptors in the range
@@ -732,13 +811,29 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Application::CreateRootSignature()
         0,  // register space, typically 0
         D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC // Descriptors and data are static and will not change (as they're loaded textures)
     );
+    // CBV range
+    ranges[1].Init(
+        D3D12_DESCRIPTOR_RANGE_TYPE_CBV,    // type of resources within the range
+        1,  // number of descriptors in the range
+        0,  // base shader register in the range
+        0,  // register space, typically 0
+        D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC // Descriptors and data are static and will not change (as they're loaded textures)
+
+    );
 
     // Describe layout of descriptor tables to the root signature based on ranges
-    CD3DX12_ROOT_PARAMETER1 rootParameters[1];
+    CD3DX12_ROOT_PARAMETER1 rootParameters[2];
+    // SRV root parameters
     rootParameters[0].InitAsDescriptorTable(
         1,  // number of descriptors in the range
         &ranges[0], // Descriptor range specified already 
         D3D12_SHADER_VISIBILITY_PIXEL   // Specify that the pixel shader can access these textures
+    );
+    // CBV root parameters
+    rootParameters[1].InitAsDescriptorTable(
+        1,  // number of descriptors in the range
+        &ranges[1], // Descriptor range specified already 
+        D3D12_SHADER_VISIBILITY_VERTEX   // Specify that the vertex shader can access these textures
     );
 
     // define the static samplers, a free part of a root signature
@@ -942,11 +1037,12 @@ void Application::PopulateCommandList()
 
     // Set necessary state.
     m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
-    // Draw texture's srv
-    ID3D12DescriptorHeap* ppSrvHeaps[] = { m_srvHeap.Get() };
-    m_commandList->SetDescriptorHeaps(_countof(ppSrvHeaps), ppSrvHeaps);
+    // Set command list shader resource view and constant buffer view
+    ID3D12DescriptorHeap* ppHeaps[] = { m_srvHeap.Get(), m_cbvHeap.Get()};
+    m_commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
     // Describe how the SRVs are laid out
     m_commandList->SetGraphicsRootDescriptorTable(0, m_srvHeap->GetGPUDescriptorHandleForHeapStart());
+    m_commandList->SetGraphicsRootDescriptorTable(1, m_cbvHeap->GetGPUDescriptorHandleForHeapStart());
 
     m_commandList->RSSetViewports(1, &m_viewport);
     m_commandList->RSSetScissorRects(1, &m_scissorRect);

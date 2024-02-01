@@ -39,6 +39,17 @@ private:
 		DirectX::XMFLOAT2 uv;
 	};
 
+	// Constant buffer used to translate the triangle in the shaders
+	struct SceneConstantBuffer
+	{
+		// Constant buffer must be 256-Byte aligned 
+		DirectX::XMFLOAT4 offset;	//4 * 4 =	16 Bytes
+		float padding[60];	//60 * 4 =	240 Bytes
+	};
+	// Ensure constant buffer is 256-byte aligned
+	static_assert((sizeof(SceneConstantBuffer) % 256) == 0, "Constant Buffer size must be 256-byte aligned");
+
+
 #pragma region Pipeline
 
 	D3D12_VIEWPORT m_viewport;
@@ -50,8 +61,6 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_commandQueue;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_rootSignature;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
-	// Shader resource view heap for accessing data in a resource (texture)
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvHeap;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pipelineState;
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_commandList;
 	
@@ -66,9 +75,20 @@ private:
 
 #pragma region Resources
 
+	// Vertex buffer
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_vertexBuffer;
 	D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;
+
+	// Texture
+	// Shader resource view heap for accessing data in a resource (texture)
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvHeap;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_texture;
+
+	// Constant buffer
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_cbvHeap;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_constantBuffer ;
+	SceneConstantBuffer m_constantBufferData;
+	UINT8* m_pCbvDataBegin;
 
 
 #pragma endregion
