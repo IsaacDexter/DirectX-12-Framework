@@ -6,6 +6,7 @@
 #include "imgui.h"
 #include "imgui_impl_dx12.h"
 #include "imgui_impl_win32.h"
+#include <chrono>
 
 class Window;
 
@@ -53,6 +54,11 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvHeap;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pipelineState;
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_commandList;
+	
+	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> m_bundleAllocator;
+	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_bundle;
+
+
 	UINT m_rtvDescriptorSize;
 	bool m_useWarpDevice = false;
 
