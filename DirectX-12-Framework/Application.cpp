@@ -85,7 +85,6 @@ void Application::Update()
         }
         // Update the constant buffer pointer with new data
         memcpy(m_pCbvDataBegin, &m_constantBufferData, sizeof(m_constantBufferData));
-
     }
 
 
@@ -181,27 +180,26 @@ void Application::InitializePipeline()
             rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;    // This heap needs no binding to pipeline
             ThrowIfFailed(m_device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_rtvHeap)));
         }
+        // How much to offset the shared RTV heap by to get the next available handle
+        m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
 
         // Describe and create a Shader Resource View (SRV) heap for the texture.
+        // This heap also contains the Constant Buffer Views. These are in the same heap because
+        // CBVs, SRVs, and UAVs can be combined into a single descriptor table.
+        // This means the descriptor heap needn't be changed in the command list, which is slow and rarely used.
+        // https://learn.microsoft.com/en-us/windows/win32/direct3d12/resource-binding-flow-of-control
         {
             D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-            srvHeapDesc.NumDescriptors = 1;
+            srvHeapDesc.NumDescriptors = 3;
             srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;  // SRV type
             srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  // Allow this heap to be bound to the pipeline
-            ThrowIfFailed(m_device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_srvHeap)));
+            ThrowIfFailed(m_device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_srvCbvHeap)));
         }
-    
-        // Describe and create Constant Buffer View (CBV) descriptor heap
-        {
-            D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc = {};
-            cbvHeapDesc.NumDescriptors = 1;
-            cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;  // CBV type
-            cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  // allow this heap to be bound to the pipeline
-            ThrowIfFailed(m_device->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_cbvHeap)));
-        }
+        // How much to offset the shared SRV/SBV heap by to get the next available handle
+        m_srvCbvHeapSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     }
 
-    m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
 
 
@@ -651,7 +649,28 @@ void Application::InitializeAssets()
         m_vertexBufferView.StrideInBytes = sizeof(Vertex);  // specify size in bytes of each vertex entry in buffer 
     }
 
+    // Get a handle to the start of the shared SRV & CBV heap, which represents the free point in the heap. This will be incremented to add SRVs after CBVs to the heap.
+    CD3DX12_CPU_DESCRIPTOR_HANDLE srvCbvHeapHandle(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart());
+    
+
+    // Create and record the bundle for drawing the triangle
+    {
+        ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_BUNDLE, m_bundleAllocator.Get(), m_pipelineState.Get(), IID_PPV_ARGS(&m_bundle)));
+        m_bundle->SetGraphicsRootSignature(m_rootSignature.Get());
+        m_bundle->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        m_bundle->IASetVertexBuffers(0, 1, &m_vertexBufferView);
+        m_bundle->DrawInstanced(3, 1, 0, 0);
+        ThrowIfFailed(m_bundle->Close());
+    }
+
+    // Note: ComPtr's are CPU objects but this resource needs to stay in scope until
+    // the command list that references it has finished executing on the GPU.
+    // We will flush the GPU at the end of this method to ensure the resource is not
+    // prematurely destroyed.
+    ComPtr<ID3D12Resource> uploadRes;
+
     // Create the constant buffer
+
     {
         const UINT constantBufferSize = sizeof(SceneConstantBuffer);
         // get the size of the constant buffer, which is already asserted to be 256-byte aligned
@@ -676,7 +695,10 @@ void Application::InitializeAssets()
         cbvDesc.BufferLocation = m_constantBuffer->GetGPUVirtualAddress();  //GPU virtual address of constant buffer
         cbvDesc.SizeInBytes = constantBufferSize;   // Size of constant buffer
         // Create the constant buffer view, i.e. formatted constant buffer data and bind it to the CBV heap
-        m_device->CreateConstantBufferView(&cbvDesc, m_cbvHeap->GetCPUDescriptorHandleForHeapStart());
+
+        m_device->CreateConstantBufferView(&cbvDesc, srvCbvHeapHandle);
+        // Offset the handle to get the next available one to put the Shader Resource View in.
+        srvCbvHeapHandle.Offset(m_srvCbvHeapSize);
 
         // Map the constant buffer and initialize it
         // This can be mapped for the lifteime of the resource, isnt unmapped until app closes
@@ -684,22 +706,6 @@ void Application::InitializeAssets()
         ThrowIfFailed(m_constantBuffer->Map(0, &readRange, reinterpret_cast<void**>(&m_pCbvDataBegin)), "Failed to map constant buffer.\n");
         memcpy(m_pCbvDataBegin, &m_constantBufferData, sizeof(m_constantBufferData));   // map constant buffer data into the pointer to the beginning
     }
-
-    // Create and record the bundle for drawing the triangle
-    {
-        ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_BUNDLE, m_bundleAllocator.Get(), m_pipelineState.Get(), IID_PPV_ARGS(&m_bundle)));
-        m_bundle->SetGraphicsRootSignature(m_rootSignature.Get());
-        m_bundle->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-        m_bundle->IASetVertexBuffers(0, 1, &m_vertexBufferView);
-        m_bundle->DrawInstanced(3, 1, 0, 0);
-        ThrowIfFailed(m_bundle->Close());
-    }
-
-    // Note: ComPtr's are CPU objects but this resource needs to stay in scope until
-    // the command list that references it has finished executing on the GPU.
-    // We will flush the GPU at the end of this method to ensure the resource is not
-    // prematurely destroyed.
-    ComPtr<ID3D12Resource> uploadRes;
 
     // Create the texture
     {
@@ -742,8 +748,31 @@ void Application::InitializeAssets()
             ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
             m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 
-            CreateShaderResourceView(m_device.Get(), m_texture.Get(), m_srvHeap->GetCPUDescriptorHandleForHeapStart());
+            CreateShaderResourceView(m_device.Get(), m_texture.Get(), srvCbvHeapHandle);
+            srvCbvHeapHandle.Offset(m_srvCbvHeapSize);
         }
+    }
+
+    // Set up Dear ImGui
+    {
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO();
+
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+        // Setup Platform/Renderer backends
+        ImGui_ImplWin32_Init(m_window->GetHWND());
+        int da = 4;
+        CD3DX12_GPU_DESCRIPTOR_HANDLE srvCbvHeapHandleGPU(m_srvCbvHeap->GetGPUDescriptorHandleForHeapStart());
+        srvCbvHeapHandleGPU.Offset(m_srvCbvHeapSize*2);
+        ImGui_ImplDX12_Init(m_device.Get(), m_frameCount, DXGI_FORMAT_R8G8B8A8_UNORM,
+            m_srvCbvHeap.Get(),
+            // You'll need to designate a descriptor from your descriptor heap for Dear ImGui to use internally for its font texture's SRV
+            srvCbvHeapHandle,
+            srvCbvHeapHandleGPU
+            );
     }
 
 
@@ -766,23 +795,7 @@ void Application::InitializeAssets()
         WaitForPreviousFrame();
     }
 
-    // Set up Dear ImGui
-    {
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGuiIO& io = ImGui::GetIO();
-
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-
-        // Setup Platform/Renderer backends
-        ImGui_ImplWin32_Init(m_window->GetHWND());
-        ImGui_ImplDX12_Init(m_device.Get(), m_frameCount, DXGI_FORMAT_R8G8B8A8_UNORM,
-            m_srvHeap.Get(),
-            // You'll need to designate a descriptor from your descriptor heap for Dear ImGui to use internally for its font texture's SRV
-            m_srvHeap->GetCPUDescriptorHandleForHeapStart(),
-            m_srvHeap->GetGPUDescriptorHandleForHeapStart());
-    }
+    
 }
 
 Microsoft::WRL::ComPtr<ID3D12RootSignature> Application::CreateRootSignature()
@@ -806,7 +819,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Application::CreateRootSignature()
     // SRV range
     ranges[0].Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_SRV,    // type of resources within the range
-        1,  // number of descriptors in the range
+        2,  // number of descriptors in the range
         0,  // base shader register in the range
         0,  // register space, typically 0
         D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC // Descriptors and data are static and will not change (as they're loaded textures)
@@ -825,7 +838,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Application::CreateRootSignature()
     CD3DX12_ROOT_PARAMETER1 rootParameters[2];
     // SRV root parameters
     rootParameters[0].InitAsDescriptorTable(
-        1,  // number of descriptors in the range
+        2,  // number of descriptors in the range
         &ranges[0], // Descriptor range specified already 
         D3D12_SHADER_VISIBILITY_PIXEL   // Specify that the pixel shader can access these textures
     );
@@ -1038,11 +1051,14 @@ void Application::PopulateCommandList()
     // Set necessary state.
     m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
     // Set command list shader resource view and constant buffer view
-    ID3D12DescriptorHeap* ppHeaps[] = { m_srvHeap.Get(), m_cbvHeap.Get()};
+    ID3D12DescriptorHeap* ppHeaps[] = { m_srvCbvHeap.Get()};
     m_commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
     // Describe how the SRVs are laid out
-    m_commandList->SetGraphicsRootDescriptorTable(0, m_srvHeap->GetGPUDescriptorHandleForHeapStart());
-    m_commandList->SetGraphicsRootDescriptorTable(1, m_cbvHeap->GetGPUDescriptorHandleForHeapStart());
+    CD3DX12_GPU_DESCRIPTOR_HANDLE srvCbvHeapHandleGPU(m_srvCbvHeap->GetGPUDescriptorHandleForHeapStart());
+    srvCbvHeapHandleGPU.Offset(m_srvCbvHeapSize * 1);
+    m_commandList->SetGraphicsRootDescriptorTable(0, srvCbvHeapHandleGPU);
+    // Access Constant Buffer in Vertex shader
+    m_commandList->SetGraphicsRootDescriptorTable(1, m_srvCbvHeap->GetGPUDescriptorHandleForHeapStart());
 
     m_commandList->RSSetViewports(1, &m_viewport);
     m_commandList->RSSetScissorRects(1, &m_scissorRect);

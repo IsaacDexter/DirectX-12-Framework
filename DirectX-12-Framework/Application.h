@@ -81,11 +81,12 @@ private:
 
 	// Texture
 	// Shader resource view heap for accessing data in a resource (texture)
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvHeap;
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvCbvHeap;
+	// How much to offset the shared SRV/SBV heap by to get the next available handle
+	UINT m_srvCbvHeapSize;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_texture;
 
 	// Constant buffer
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_cbvHeap;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_constantBuffer ;
 	SceneConstantBuffer m_constantBufferData;
 	UINT8* m_pCbvDataBegin;
