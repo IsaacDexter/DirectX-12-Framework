@@ -91,6 +91,12 @@ private:
 	SceneConstantBuffer m_constantBufferData;
 	UINT8* m_pCbvDataBegin;
 
+	enum Descriptors
+	{
+		CBV = 0,
+		Tiles,
+		GUI
+	};
 
 #pragma endregion
 
@@ -187,6 +193,16 @@ private:
 
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> CreateRootSignature();
 
+	void CreateSyncObjects();
+
+	void CreateConstantBuffer();
+
+	/** 
+	* Loads and creates the tiles texture into its resource.
+	* @param uploadRes, ComPtr to an upload resource, that needs to stay in scope past the method. Ensure the GPU is flushed so it doesn't leave scope prematurely.
+	*/
+	void CreateTexture(ID3D12Resource* uploadRes);
+
 	/** 
 	* Creates the pipeline state stream, serialized object, and object. 
 	* The various descs are pulled from their various functions.
@@ -196,7 +212,10 @@ private:
 	*/
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> CreatePipelineStateObject(ID3DBlob* pVertexShaderBlob, ID3DBlob* pPixelShaderBlob);
 
-	std::vector<UINT8> GenerateTextureData();
+	void InitializeGUI();
+	void UpdateGUI();
+	void DestroyGUI();
+
 
 	void WaitForPreviousFrame();
 
