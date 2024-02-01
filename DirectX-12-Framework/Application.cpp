@@ -525,9 +525,9 @@ void Application::InitializeAssets()
         auto aspectRatio = m_window->GetAspectRatio();
         Vertex triangleVertices[] =
         {
-            { { 0.0f, 0.25f * aspectRatio, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
-            { { 0.25f, -0.25f * aspectRatio, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
-            { { -0.25f, -0.25f * aspectRatio, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } }
+            { { 0.0f, 0.25f * aspectRatio, 0.0f }, { 0.5f, 0.0f } },
+            { { 0.25f, -0.25f * aspectRatio, 0.0f }, { 1.0f, 1.0f } },
+            { { -0.25f, -0.25f * aspectRatio, 0.0f }, { 0.0f, 1.0f } }
         };
 
         const UINT vbSize = sizeof(triangleVertices);
@@ -580,15 +580,16 @@ void Application::InitializeAssets()
                 static_cast<UINT>(subresources.size()));
 
             // Create the GPU upload buffer.
+            
             CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
 
-            auto desc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
+            auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
 
             ThrowIfFailed(
                 m_device->CreateCommittedResource(
                     &heapProps,
                     D3D12_HEAP_FLAG_NONE,
-                    &desc,
+                    &bufferDesc,
                     D3D12_RESOURCE_STATE_GENERIC_READ,
                     nullptr,
                     IID_PPV_ARGS(uploadRes.GetAddressOf())));
@@ -733,7 +734,8 @@ Microsoft::WRL::ComPtr<ID3D12PipelineState> Application::CreatePipelineStateObje
             D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, // input data class for input slot: per-vertex/per-instance data
             0   //number of instances to draw
         },
-        { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+        //{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
     };
 
     // Create the input layout desc, which defines the organization of input elements to the pipeline state desc
@@ -761,7 +763,7 @@ Microsoft::WRL::ComPtr<ID3D12PipelineState> Application::CreatePipelineStateObje
     std::fill(std::begin(rtvFormats.RTFormats), std::end(rtvFormats.RTFormats), DXGI_FORMAT_UNKNOWN);   // set to unknown format for unused render targets
     rtvFormats.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;   // define render target format for the first (only) render target
 
-    // Default sampler mode without anti aliasing
+    // Default sample mode without anti aliasing
     DXGI_SAMPLE_DESC sampleDesc = {};
     sampleDesc.Count = 1;
     sampleDesc.Quality = 0;
@@ -866,6 +868,12 @@ void Application::PopulateCommandList()
 
     // Set necessary state.
     m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+    // Draw texture's srv
+    ID3D12DescriptorHeap* ppSrvHeaps[] = { m_srvHeap.Get() };
+    m_commandList->SetDescriptorHeaps(_countof(ppSrvHeaps), ppSrvHeaps);
+    // Describe how the SRVs are laid out
+    m_commandList->SetGraphicsRootDescriptorTable(0, m_srvHeap->GetGPUDescriptorHandleForHeapStart());
+
     m_commandList->RSSetViewports(1, &m_viewport);
     m_commandList->RSSetScissorRects(1, &m_scissorRect);
 
