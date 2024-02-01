@@ -4,3 +4,12 @@ English: this is a texture of mowed grass, photographed in a warm climate. It wa
 Date	25 June 2020
 Source	Own work
 Author	Sisters.seamless https://commons.wikimedia.org/wiki/User:Sisters.seamless
+
+Grey pale pink rose checkered slightly worn speckled seamless tiled floor paving texture
+https://commons.wikimedia.org/wiki/File:Grey_pale_pink_rose_checkered_slightly_worn_speckled_seamless_tiled_floor_paving_texture.jpg
+Description	
+English: this is a seamless texture of a tile surface photographed in a warm climate. It was turned into a texture, using photo editing software, "gimp".
+Date	25 June 2020
+Source	Own work
+Author	Sisters.seamless https://commons.wikimedia.org/wiki/User:Sisters.seamless
+Lisence https://creativecommons.org/publicdomain/zero/1.0/deed.en

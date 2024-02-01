@@ -573,7 +573,7 @@ void Application::InitializeAssets()
             std::unique_ptr<uint8_t[]> ddsData;
             std::vector<D3D12_SUBRESOURCE_DATA> subresources;
             ThrowIfFailed(
-                LoadDDSTextureFromFile(m_device.Get(), L"Assets/Grass.dds", m_texture.ReleaseAndGetAddressOf(),
+                LoadDDSTextureFromFile(m_device.Get(), L"Assets/Tiles.dds", m_texture.ReleaseAndGetAddressOf(),
                     ddsData, subresources));
 
             const UINT64 uploadBufferSize = GetRequiredIntermediateSize(m_texture.Get(), 0,
