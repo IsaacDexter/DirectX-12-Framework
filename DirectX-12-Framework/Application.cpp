@@ -8,7 +8,6 @@ using namespace DirectX;
 Application::Application(HINSTANCE hInstance)
 {
     m_window = std::make_shared<Window>(hInstance);
-    m_window->Show();
 
     auto width = m_window->GetClientWidth();
     auto height = m_window->GetClientHeight();
@@ -25,11 +24,16 @@ void Application::Initialize()
 	// Initialize Assets
 	InitializePipeline();
 	InitializeAssets();
+    m_window->Show();
 
 }
 
 void Application::Update()
 {
+    ImGui_ImplDX12_NewFrame();
+    ImGui_ImplWin32_NewFrame();
+    ImGui::NewFrame();
+    ImGui::ShowDemoWindow(); // Show demo window! :)
 }
 
 void Application::Render()
@@ -75,6 +79,10 @@ void Application::Destroy()
     WaitForPreviousFrame();
 
     CloseHandle(m_fenceEvent);
+
+    ImGui_ImplDX12_Shutdown();
+    ImGui_ImplWin32_Shutdown();
+    ImGui::DestroyContext();
 }
 
 /*
@@ -631,6 +639,24 @@ void Application::InitializeAssets()
         // complete before continuing.
         WaitForPreviousFrame();
     }
+
+    // Set up Dear ImGui
+    {
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO();
+
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+        // Setup Platform/Renderer backends
+        ImGui_ImplWin32_Init(m_window->GetHWND());
+        ImGui_ImplDX12_Init(m_device.Get(), m_frameCount, DXGI_FORMAT_R8G8B8A8_UNORM,
+            m_srvHeap.Get(),
+            // You'll need to designate a descriptor from your descriptor heap for Dear ImGui to use internally for its font texture's SRV
+            m_srvHeap->GetCPUDescriptorHandleForHeapStart(),
+            m_srvHeap->GetGPUDescriptorHandleForHeapStart());
+    }
 }
 
 Microsoft::WRL::ComPtr<ID3D12RootSignature> Application::CreateRootSignature()
@@ -891,9 +917,20 @@ void Application::PopulateCommandList()
     m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
     m_commandList->DrawInstanced(3, 1, 0, 0);
 
+    // render Dear ImGui
+    {
+        // Rendering
+        // (Your code clears your framebuffer, renders your other stuff etc.)
+        ImGui::Render();
+        ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_commandList.Get());
+        // (Your code calls ExecuteCommandLists, swapchain's Present(), etc.)
+    }
+
     // Indicate that the back buffer will now be used to present.
     barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
     m_commandList->ResourceBarrier(1, &barrier);
+
+    
 
     ThrowIfFailed(m_commandList->Close());
 }

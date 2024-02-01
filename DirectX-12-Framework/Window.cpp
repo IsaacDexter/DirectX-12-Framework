@@ -99,7 +99,7 @@ Window::Window(HINSTANCE hInstance)
     g_hWnd = CreateApplicationWindow(
         windowClassName,    //registered window class
         hInstance,  // instance
-        L"DX12 Application",    //window name
+        L"DirecX12 Application",    //window name
         g_clientWidth,    //width
         g_clientHeight    //height
     );
