@@ -691,7 +691,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Application::CreateRootSignature()
     // SRV range
     ranges[0].Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_SRV,    // type of resources within the range
-        2,  // number of descriptors in the range
+        1,  // number of descriptors in the range
         0,  // base shader register in the range
         0,  // register space, typically 0
         D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC // Descriptors and data are static and will not change (as they're loaded textures)
@@ -710,7 +710,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Application::CreateRootSignature()
     CD3DX12_ROOT_PARAMETER1 rootParameters[2];
     // SRV root parameters
     rootParameters[0].InitAsDescriptorTable(
-        2,  // number of descriptors in the range
+        1,  // number of descriptors in the range
         &ranges[0], // Descriptor range specified already 
         D3D12_SHADER_VISIBILITY_PIXEL   // Specify that the pixel shader can access these textures
     );
