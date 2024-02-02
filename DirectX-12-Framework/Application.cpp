@@ -663,7 +663,7 @@ void Application::InitializeAssets()
     // We will flush the GPU at the end of this method to ensure the resource is not
     // prematurely destroyed.
     ComPtr<ID3D12Resource> uploadRes;
-    CreateTexture(uploadRes.Get());
+    m_texture = CreateTexture(uploadRes.Get(), L"Assets/Tiles.dds", Descriptors::Tiles);
 
     InitializeGUI();
 
@@ -829,51 +829,54 @@ void Application::CreateConstantBuffer()
     memcpy(m_pCbvDataBegin, &m_constantBufferData, sizeof(m_constantBufferData));   // map constant buffer data into the pointer to the beginning
 }
 
-void Application::CreateTexture(ID3D12Resource* uploadRes)
+Microsoft::WRL::ComPtr<ID3D12Resource> Application::CreateTexture(ID3D12Resource* uploadRes, const wchar_t* path, Descriptors descriptor)
 {
-    {
-        std::unique_ptr<uint8_t[]> ddsData;
-        std::vector<D3D12_SUBRESOURCE_DATA> subresources;
-        ThrowIfFailed(
-            LoadDDSTextureFromFile(m_device.Get(), L"Assets/Tiles.dds", m_texture.ReleaseAndGetAddressOf(),
-                ddsData, subresources));
-
-        const UINT64 uploadBufferSize = GetRequiredIntermediateSize(m_texture.Get(), 0,
-            static_cast<UINT>(subresources.size()));
-
-        // Create the GPU upload buffer.
-
-        CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
-
-        auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
-
-        ThrowIfFailed(
-            m_device->CreateCommittedResource(
-                &heapProps,
-                D3D12_HEAP_FLAG_NONE,
-                &bufferDesc,
-                D3D12_RESOURCE_STATE_GENERIC_READ,
-                nullptr,
-                IID_PPV_ARGS(&uploadRes)));
+    Microsoft::WRL::ComPtr<ID3D12Resource> texture;
 
 
-        UpdateSubresources(m_commandList.Get(), m_texture.Get(), uploadRes,
-            0, 0, static_cast<UINT>(subresources.size()), subresources.data());
+    std::unique_ptr<uint8_t[]> ddsData;
+    std::vector<D3D12_SUBRESOURCE_DATA> subresources;
+    ThrowIfFailed(
+        LoadDDSTextureFromFile(m_device.Get(), path, texture.ReleaseAndGetAddressOf(),
+            ddsData, subresources), "Coudln't load texture.\n ");
 
-        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_texture.Get(),
-            D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-        m_commandList->ResourceBarrier(1, &barrier);
+    const UINT64 uploadBufferSize = GetRequiredIntermediateSize(texture.Get(), 0,
+        static_cast<UINT>(subresources.size()));
 
-        // Close the command list and execute it to begin the initial GPU setup.
+    // Create the GPU upload buffer.
 
-        ThrowIfFailed(m_commandList->Close());
-        ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
-        m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+    CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
 
-        CD3DX12_CPU_DESCRIPTOR_HANDLE srvHeapHandle(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart());
-        srvHeapHandle.Offset(m_srvCbvHeapSize * Descriptors::Tiles);
-        CreateShaderResourceView(m_device.Get(), m_texture.Get(), srvHeapHandle);
-    }
+    auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
+
+    ThrowIfFailed(m_device->CreateCommittedResource(
+        &heapProps,
+        D3D12_HEAP_FLAG_NONE,
+        &bufferDesc,
+        D3D12_RESOURCE_STATE_GENERIC_READ,
+        nullptr,
+        IID_PPV_ARGS(&uploadRes)
+    ),"Couldn't Create texture.\n");
+
+
+    UpdateSubresources(m_commandList.Get(), texture.Get(), uploadRes,
+        0, 0, static_cast<UINT>(subresources.size()), subresources.data());
+
+    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(texture.Get(),
+        D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    m_commandList->ResourceBarrier(1, &barrier);
+
+    // Close the command list and execute it to begin the initial GPU setup.
+
+    ThrowIfFailed(m_commandList->Close());
+    ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
+    m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE srvHeapHandle(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart());
+    srvHeapHandle.Offset(m_srvCbvHeapSize * descriptor);
+    CreateShaderResourceView(m_device.Get(), texture.Get(), srvHeapHandle);
+
+    return texture;
 }
 
 Microsoft::WRL::ComPtr<ID3D12PipelineState> Application::CreatePipelineStateObject(ID3DBlob* pVertexShaderBlob, ID3DBlob* pPixelShaderBlob)

@@ -198,10 +198,13 @@ private:
 	void CreateConstantBuffer();
 
 	/** 
-	* Loads and creates the tiles texture into its resource.
+	* Loads and creates a given texture into a resource.
 	* @param uploadRes, ComPtr to an upload resource, that needs to stay in scope past the method. Ensure the GPU is flushed so it doesn't leave scope prematurely.
+	* @param path, literal to the texture files location
+	* @param descriptor UINT identifier to the texture
+	* @ returns the newly created texture resource
 	*/
-	void CreateTexture(ID3D12Resource* uploadRes);
+	Microsoft::WRL::ComPtr<ID3D12Resource> CreateTexture(ID3D12Resource* uploadRes, const wchar_t* path, Descriptors descriptor);
 
 	/** 
 	* Creates the pipeline state stream, serialized object, and object. 
