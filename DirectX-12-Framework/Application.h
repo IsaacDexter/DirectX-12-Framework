@@ -26,12 +26,11 @@ public:
 	void Update();
 	void Render();
 	void Destroy();
+	void Resize();
+
 
 private:
 	static const UINT m_frameCount = 2;
-	static const UINT TextureWidth = 256;
-	static const UINT TextureHeight = 256;
-	static const UINT TexturePixelSize = 4;    // The number of bytes used to represent a pixel in the texture.
 
 	struct Vertex
 	{
@@ -164,7 +163,7 @@ private:
 	*/
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(Microsoft::WRL::ComPtr<ID3D12Device4> device, const D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors, UINT &descriptorSize);
 
-	std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Application::m_frameCount> CreateRenderTargetViews(Microsoft::WRL::ComPtr<ID3D12Device4> device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> rtvHeap, Microsoft::WRL::ComPtr<IDXGISwapChain3> swapChain, UINT& rtvDescriptorSize);
+	void UpdateRenderTargetViews(Microsoft::WRL::ComPtr<ID3D12Device4> device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> rtvHeap, Microsoft::WRL::ComPtr<IDXGISwapChain3> swapChain, std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Application::m_frameCount>& renderTargets);
 
 	/**
 	* Create a resource large enough to hold buffer data

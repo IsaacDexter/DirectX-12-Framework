@@ -47,6 +47,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			g_application->Render();
 			break;
 		}
+		case WM_SIZE:
+		{
+			g_application->Resize();
+			break;
+		}
 		case WM_DESTROY:
 		{
 			PostQuitMessage(0);

@@ -103,7 +103,7 @@ void Application::Render()
 		    - Re-use memory associated with command allocator
 	    - Reset command list
 	    - Set graphics root signature
-		    - To use with current command list
+		   - To use with current command list
 	    - Set viewport and scissor rect
 	    - Set *resource barrier*s
 		    - Indicate back buffer to be used as render target
@@ -140,6 +140,40 @@ void Application::Destroy()
     CloseHandle(m_fenceEvent);
 
     DestroyGUI();
+}
+
+void Application::Resize()
+{
+    // Check if the size actually changed
+    if (m_window->Resize())
+    {
+        // flush the GPU queue to ensure the buffers aren't currently in use
+        // I think this is the problem
+        WaitForGpu();
+
+        for (int i = 0; i < m_frameCount; ++i)
+        {
+            // relesase references to renderTargets before resizing
+            m_renderTargets[i].Reset();
+        }
+
+        // query the swap chain description so the same colour format and flags can be used to recreate it
+        DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
+        ThrowIfFailed(m_swapChain->GetDesc(&swapChainDesc));
+        // recreate the swap chain with the new size from the same description
+        ThrowIfFailed(m_swapChain->ResizeBuffers(
+            m_frameCount,
+            m_window->GetClientWidth(),
+            m_window->GetClientHeight(),
+            swapChainDesc.BufferDesc.Format,
+            swapChainDesc.Flags
+        ));
+        // update the back buffer index known by the application, as it may not be the same as the resized version
+        m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+        // as the swap chain buffers have been resized, update their descriptors too
+        UpdateRenderTargetViews(m_device, m_rtvHeap, m_swapChain, m_renderTargets);
+
+    }
 }
 
 /*
@@ -204,8 +238,10 @@ void Application::InitializePipeline()
 
 
 
+    // Create the render target views
+    UpdateRenderTargetViews(m_device, m_rtvHeap, m_swapChain, m_renderTargets);
 
-    m_renderTargets = CreateRenderTargetViews(m_device, m_rtvHeap, m_swapChain, m_rtvDescriptorSize);
+
 
     // Create frame resources
     {
@@ -466,9 +502,9 @@ Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> Application::CreateDescriptorHeap(M
     return descriptorHeap;
 }
 
-std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Application::m_frameCount> Application::CreateRenderTargetViews(Microsoft::WRL::ComPtr<ID3D12Device4> device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> rtvHeap, Microsoft::WRL::ComPtr<IDXGISwapChain3> swapChain, UINT& rtvDescriptorSize)
+void Application::UpdateRenderTargetViews(Microsoft::WRL::ComPtr<ID3D12Device4> device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> rtvHeap, Microsoft::WRL::ComPtr<IDXGISwapChain3> swapChain, std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Application::m_frameCount>& renderTargets)
 {
-    std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Application::m_frameCount> renderTargets;
+    auto rtvDescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(rtvHeap->GetCPUDescriptorHandleForHeapStart());
 
@@ -479,8 +515,6 @@ std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Application::m_frameCount> Ap
         device->CreateRenderTargetView(renderTargets[n].Get(), nullptr, rtvHandle);
         rtvHandle.Offset(1, rtvDescriptorSize);
     }
-
-    return renderTargets;
 }
 
 
