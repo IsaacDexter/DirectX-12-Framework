@@ -175,9 +175,13 @@ void Application::InitializePipeline()
             rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;  //RTV type
             rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;    // This heap needs no binding to pipeline
             ThrowIfFailed(m_device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_rtvHeap)));
+
+            // How much to offset the shared RTV heap by to get the next available handle
+            m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
         }
-        // How much to offset the shared RTV heap by to get the next available handle
-        m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+        
+        // Describe and create the Depth Stencil View (DSV) descriptor heap
+
 
 
         // Describe and create a Shader Resource View (SRV) heap for the texture.
@@ -187,13 +191,15 @@ void Application::InitializePipeline()
         // https://learn.microsoft.com/en-us/windows/win32/direct3d12/resource-binding-flow-of-control
         {
             D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-            srvHeapDesc.NumDescriptors = 3;
+            srvHeapDesc.NumDescriptors = 4;
             srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;  // SRV type
             srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  // Allow this heap to be bound to the pipeline
             ThrowIfFailed(m_device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_srvCbvHeap)));
+
+            // How much to offset the shared SRV/SBV heap by to get the next available handle
+            m_srvCbvHeapSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
         }
-        // How much to offset the shared SRV/SBV heap by to get the next available handle
-        m_srvCbvHeapSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        
     }
 
 
@@ -481,7 +487,7 @@ std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Application::m_frameCount> Ap
 void Application::UpdateBufferResource(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource, size_t numElements, const void* bufferData, D3D12_RESOURCE_FLAGS flags)
 {
     // size of the buffer in bytes
-    const UINT64 bufferSize = GetRequiredIntermediateSize(m_texture.Get(), 0, numElements);
+    const UINT64 bufferSize = GetRequiredIntermediateSize(m_tiles.Get(), 0, numElements);
 
 
     // Create CPU resource in committed memory large enough to store the buffer
@@ -666,13 +672,21 @@ void Application::InitializeAssets()
     // Create the constant buffer
     CreateConstantBuffer();
 
+
     // Create the texture
     // Note: ComPtr's are CPU objects but this resource needs to stay in scope until
     // the command list that references it has finished executing on the GPU.
     // We will flush the GPU at the end of this method to ensure the resource is not
     // prematurely destroyed.
     ComPtr<ID3D12Resource> uploadRes;
-    m_texture = CreateTexture(uploadRes.Get(), L"Assets/Tiles.dds", Descriptors::Tiles);
+    m_tiles = CreateTexture(uploadRes.Get(), L"Assets/Tiles.dds", Descriptors::Tiles);
+    ComPtr<ID3D12Resource> uploadRes2;
+    m_grass = CreateTexture(uploadRes2.Get(), L"Assets/Grass.dds", Descriptors::Grass);
+
+    // Close the command list and execute it to begin the initial GPU setup.
+    ThrowIfFailed(m_commandList->Close());
+    ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
+    m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 
     InitializeGUI();
 
@@ -700,7 +714,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Application::CreateRootSignature()
     // SRV range
     ranges[0].Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_SRV,    // type of resources within the range
-        1,  // number of descriptors in the range
+        2,  // number of descriptors in the range
         0,  // base shader register in the range
         0,  // register space, typically 0
         D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC // Descriptors and data are static and will not change (as they're loaded textures)
@@ -875,11 +889,7 @@ Microsoft::WRL::ComPtr<ID3D12Resource> Application::CreateTexture(ID3D12Resource
         D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     m_commandList->ResourceBarrier(1, &barrier);
 
-    // Close the command list and execute it to begin the initial GPU setup.
-
-    ThrowIfFailed(m_commandList->Close());
-    ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
-    m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+    
 
     CD3DX12_CPU_DESCRIPTOR_HANDLE srvHeapHandle(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart());
     srvHeapHandle.Offset(m_srvCbvHeapSize * descriptor);

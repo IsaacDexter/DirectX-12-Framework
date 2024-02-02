@@ -75,6 +75,8 @@ private:
 
 #pragma region Resources
 
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
+
 	// Vertex buffer
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_vertexBuffer;
 	D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;
@@ -84,7 +86,8 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvCbvHeap;
 	// How much to offset the shared SRV/SBV heap by to get the next available handle
 	UINT m_srvCbvHeapSize;
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_texture;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_tiles;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_grass;
 
 	// Constant buffer
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_constantBuffer ;
@@ -95,6 +98,7 @@ private:
 	{
 		CBV = 0,
 		Tiles,
+		Grass,
 		GUI
 	};
 
