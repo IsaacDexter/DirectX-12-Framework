@@ -57,7 +57,7 @@ private:
 	Microsoft::WRL::ComPtr<IDXGISwapChain3> m_swapChain;
 	Microsoft::WRL::ComPtr<ID3D12Device4> m_device;
 	std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Application::m_frameCount> m_renderTargets;
-	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> m_commandAllocator;
+	std::array<Microsoft::WRL::ComPtr<ID3D12CommandAllocator>, Application::m_frameCount > m_commandAllocators;
 	Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_commandQueue;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_rootSignature;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
@@ -105,7 +105,7 @@ private:
 	UINT m_frameIndex;
 	HANDLE m_fenceEvent;
 	Microsoft::WRL::ComPtr<ID3D12Fence> m_fence;
-	UINT64 m_fenceValue;
+	std::array<UINT64, Application::m_frameCount> m_fenceValues;
 
 #pragma endregion
 
@@ -219,8 +219,8 @@ private:
 	void UpdateGUI();
 	void DestroyGUI();
 
-
-	void WaitForPreviousFrame();
+	void MoveToNextFrame();
+	void WaitForGpu();
 
 #pragma endregion
 

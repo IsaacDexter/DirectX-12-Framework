@@ -5,7 +5,10 @@
 using namespace Microsoft::WRL;
 using namespace DirectX;
 
-Application::Application(HINSTANCE hInstance)
+Application::Application(HINSTANCE hInstance) :
+    m_fenceValues{},
+    m_renderTargets {},
+    m_commandAllocators{}
 {
     m_window = std::make_shared<Window>(hInstance);
 
@@ -16,6 +19,7 @@ Application::Application(HINSTANCE hInstance)
     m_viewport = { 0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height) };
     m_scissorRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
     m_rtvDescriptorSize = 0;
+    
 
     m_pCbvDataBegin = nullptr;
     m_constantBufferData = {};
@@ -124,14 +128,14 @@ void Application::Render()
     // Present the frame
     ThrowIfFailed(m_swapChain->Present(1, 0), "Failed to present frame.\n");
 
-    // Wait for GPU to finish
-    WaitForPreviousFrame();
+    // proceed to the next frame
+    MoveToNextFrame();
 }
 
 void Application::Destroy()
 {
     // Wait for the GPU to be done with all resources.
-    WaitForPreviousFrame();
+    WaitForGpu();
 
     CloseHandle(m_fenceEvent);
 
@@ -197,11 +201,16 @@ void Application::InitializePipeline()
 
     m_renderTargets = CreateRenderTargetViews(m_device, m_rtvHeap, m_swapChain, m_rtvDescriptorSize);
 
-    // Create command allocator
-    ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocator)), "Couldn't create command allocator.\n");
-    // Create bundle allocator
-    ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_BUNDLE, IID_PPV_ARGS(&m_bundleAllocator)), "Couldn't create command bundle.\n");
-
+    // Create frame resources
+    {
+        // Create a command allocator for every frame
+        for (UINT n = 0; n < m_frameCount; n++)
+        {
+            ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocators[n])), "Couldn't create command allocator.\n");
+        }
+        // Create bundle allocator
+        ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_BUNDLE, IID_PPV_ARGS(&m_bundleAllocator)), "Couldn't create command bundle.\n");
+    }
 }
 
 
@@ -593,7 +602,7 @@ void Application::InitializeAssets()
     ThrowIfFailed(m_device->CreateCommandList(
         0,  // 0 for single GPU, for multi-adapter
         D3D12_COMMAND_LIST_TYPE_DIRECT, // Create a direct command list that the GPU can execute
-        m_commandAllocator.Get(),   // Command allocator associated with this list
+        m_commandAllocators[m_frameIndex].Get(),   // Command allocator associated with this list
         m_pipelineState.Get(),  // Pipeline state
         IID_PPV_ARGS(&m_commandList)
     ), "Failed to create command list.\n");
@@ -773,8 +782,8 @@ void Application::CreateSyncObjects()
 {
     // Create synchronization objects
 
-    ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
-    m_fenceValue = 1;
+    ThrowIfFailed(m_device->CreateFence(m_fenceValues[m_frameIndex], D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
+    m_fenceValues[m_frameIndex]++;
 
     // Create an event handle to use for frame synchronization.
     m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
@@ -786,7 +795,7 @@ void Application::CreateSyncObjects()
     // Wait for the command list to execute; we are reusing the same command 
     // list in our main loop but for now, we just want to wait for setup to 
     // complete before continuing.
-    WaitForPreviousFrame();
+    WaitForGpu();
 
 }
 
@@ -1002,41 +1011,52 @@ void Application::DestroyGUI()
     ImGui::DestroyContext();
 }
 
-
-void Application::WaitForPreviousFrame()
-
+void Application::MoveToNextFrame()
 {
-    // WAITING FOR THE FRAME TO COMPLETE BEFORE CONTINUING IS NOT BEST PRACTICE.
-    // This is code implemented as such for simplicity. The D3D12HelloFrameBuffering
-    // sample illustrates how to use fences for efficient resource usage and to
-    // maximize GPU utilization.
+    // Schedule a signal command in the queue
+    // Store the fence value to set in the next frame's fence value
+    const UINT64 currentFenceValue = m_fenceValues[m_frameIndex];
+    ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), currentFenceValue));
 
-    // Signal and increment the fence value.
-    const UINT64 fence = m_fenceValue;
-    ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), fence));
-    m_fenceValue++;
+    // Update the frame index
+    m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
 
-    // Wait until the previous frame is finished.
-    if (m_fence->GetCompletedValue() < fence)
+    // Wait until the frame is ready
+    if (m_fence->GetCompletedValue() < m_fenceValues[m_frameIndex])
     {
-        ThrowIfFailed(m_fence->SetEventOnCompletion(fence, m_fenceEvent));
-        WaitForSingleObject(m_fenceEvent, INFINITE);
+        // Wait until the fence has been processed
+        ThrowIfFailed(m_fence->SetEventOnCompletion(m_fenceValues[m_frameIndex], m_fenceEvent));
+        WaitForSingleObjectEx(m_fenceEvent, INFINITE, FALSE);
     }
 
-    m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+    // Set the next frame's fence value
+    m_fenceValues[m_frameIndex] = currentFenceValue + 1;
 }
+
+void Application::WaitForGpu()
+{
+    // Schedule a signal command in the queue
+    ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), m_fenceValues[m_frameIndex]));
+
+    // Wait until the fence has been processed
+    ThrowIfFailed(m_fence->SetEventOnCompletion(m_fenceValues[m_frameIndex], m_fenceEvent));
+    WaitForSingleObjectEx(m_fenceEvent, INFINITE, FALSE);
+
+    m_fenceValues[m_frameIndex]++;
+}
+
 
 void Application::PopulateCommandList()
 {
     // Command list allocators can only be reset when the associated 
     // command lists have finished execution on the GPU; apps should use 
     // fences to determine GPU execution progress.
-    ThrowIfFailed(m_commandAllocator->Reset());
+    ThrowIfFailed(m_commandAllocators[m_frameIndex]->Reset());
 
     // However, when ExecuteCommandList() is called on a particular command 
     // list, that command list can then be reset at any time and must be before 
     // re-recording.
-    ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get()));
+    ThrowIfFailed(m_commandList->Reset(m_commandAllocators[m_frameIndex].Get(), m_pipelineState.Get()));
 
     // Set necessary state.
     m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
