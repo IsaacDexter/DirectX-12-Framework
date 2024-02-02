@@ -1011,6 +1011,18 @@ void Application::DestroyGUI()
     ImGui::DestroyContext();
 }
 
+void Application::RenderGUI(ID3D12GraphicsCommandList* commandList)
+{
+    // render Dear ImGui
+    {
+        // Rendering
+        // (Your code clears your framebuffer, renders your other stuff etc.)
+        ImGui::Render();
+        ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
+        // (Your code calls ExecuteCommandLists, swapchain's Present(), etc.)
+    }
+}
+
 void Application::MoveToNextFrame()
 {
     // Schedule a signal command in the queue
@@ -1096,15 +1108,8 @@ void Application::PopulateCommandList()
     m_commandList->ExecuteBundle(m_bundle.Get());
 
 
-
-    // render Dear ImGui
-    {
-        // Rendering
-        // (Your code clears your framebuffer, renders your other stuff etc.)
-        ImGui::Render();
-        ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_commandList.Get());
-        // (Your code calls ExecuteCommandLists, swapchain's Present(), etc.)
-    }
+    RenderGUI(m_commandList.Get());
+    
 
     // Indicate that the back buffer will now be used to present.
     barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);

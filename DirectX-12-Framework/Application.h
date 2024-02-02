@@ -218,6 +218,7 @@ private:
 	void InitializeGUI();
 	void UpdateGUI();
 	void DestroyGUI();
+	void RenderGUI(ID3D12GraphicsCommandList* commandList);
 
 	void MoveToNextFrame();
 	void WaitForGpu();
