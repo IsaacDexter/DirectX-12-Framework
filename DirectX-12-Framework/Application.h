@@ -43,8 +43,9 @@ private:
 	struct SceneConstantBuffer
 	{
 		// Constant buffer must be 256-Byte aligned 
-		DirectX::XMFLOAT4 offset;	//4 * 4 =	16 Bytes
-		float padding[60];	//60 * 4 =	240 Bytes
+		// Model View Projection matrix
+		DirectX::XMFLOAT4X4 mvp;	//4 * 4 = 16 Bytes
+		float padding[48];	//60 * 4 =	240 Bytes
 	};
 	// Ensure constant buffer is 256-byte aligned
 	static_assert((sizeof(SceneConstantBuffer) % 256) == 0, "Constant Buffer size must be 256-byte aligned");

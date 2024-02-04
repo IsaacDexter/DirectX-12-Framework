@@ -75,18 +75,21 @@ void Application::Update()
     }
 
 
-    // Update triangle to animate through constant buffer
+    // Update Model View Projection (MVP) Matrix according to camera position
     {
-        const float translationSpeed = 0.5f;
-        const float offsetBounds = 1.25f;
+        XMFLOAT3 position(0.0f, 0.0f, 1.0f);
+        XMFLOAT3 direction(0.0f, 0.0f, -1.0f);
+        XMFLOAT3 up(0.0f, 1.0f, 0.0f);
 
-        // translate the triangle in the x
-        m_constantBufferData.offset.x += (translationSpeed * deltaTime);
-        // wrap within the bounds of the screen
-        if (m_constantBufferData.offset.x > offsetBounds)
-        {
-            m_constantBufferData.offset.x = -offsetBounds;
-        }
+        XMMATRIX model = XMMatrixIdentity();
+        XMMATRIX view = XMMatrixLookToRH(XMLoadFloat3(&position), XMLoadFloat3(&direction), XMLoadFloat3(&up));
+        XMMATRIX projection = XMMatrixPerspectiveFovRH(0.8f, m_window->GetAspectRatio(), 1.0f, 1000.0f);
+
+        XMFLOAT4X4 mvp;
+        XMStoreFloat4x4(&mvp, XMMatrixTranspose(model * view * projection));
+
+        m_constantBufferData.mvp = mvp;
+
         // Update the constant buffer pointer with new data
         memcpy(m_pCbvDataBegin, &m_constantBufferData, sizeof(m_constantBufferData));
     }
@@ -702,9 +705,12 @@ void Application::InitializeAssets()
         auto aspectRatio = m_window->GetAspectRatio();
         Vertex triangleVertices[] =
         {
-            { { 0.0f, 0.25f * aspectRatio, 0.0f }, { 0.5f, 0.0f } },
-            { { 0.25f, -0.25f * aspectRatio, 0.0f }, { 1.0f, 1.0f } },
-            { { -0.25f, -0.25f * aspectRatio, 0.0f }, { 0.0f, 1.0f } }
+            { { 0.0f, 0.25f, -1.0f }, { 0.5f, 0.0f } },
+            { { 0.25f, -0.25f, -1.0f }, { 1.0f, 1.0f } },
+            { { -0.25f, -0.25f, -1.0f }, { 0.0f, 1.0f } },
+            { { 0.1f, 0.25f, -1.1f }, { 0.5f, 0.0f } },
+            { { 0.35f, -0.25f, -1.1f }, { 1.0f, 1.0f } },
+            { { -0.15f, -0.25f, -1.1f }, { 0.0f, 1.0f } }
         };
 
         const UINT vbSize = sizeof(triangleVertices);
@@ -745,7 +751,7 @@ void Application::InitializeAssets()
         m_bundle->SetGraphicsRootSignature(m_rootSignature.Get());
         m_bundle->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         m_bundle->IASetVertexBuffers(0, 1, &m_vertexBufferView);
-        m_bundle->DrawInstanced(3, 1, 0, 0);
+        m_bundle->DrawInstanced(6, 1, 0, 0);
         ThrowIfFailed(m_bundle->Close());
     }
 
