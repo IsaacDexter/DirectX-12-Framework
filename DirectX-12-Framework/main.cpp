@@ -52,6 +52,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			g_application->Resize();
 			break;
 		}
+		case WM_SYSKEYDOWN:
+		case WM_KEYDOWN:
+		{
+			g_application->Input(wParam);
+			break;
+		}
 		case WM_DESTROY:
 		{
 			PostQuitMessage(0);

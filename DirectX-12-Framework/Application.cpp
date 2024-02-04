@@ -95,6 +95,32 @@ void Application::Update()
     UpdateGUI();
 }
 
+void Application::Input(WPARAM wParam)
+{
+    bool alt = (::GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
+
+    switch (wParam)
+    {
+        // Quit
+    case VK_ESCAPE:
+    {
+        ::PostQuitMessage(0);
+        break;
+    }
+        // Toggle Fullscreen
+    case VK_RETURN:
+        if (alt)
+        {
+    case VK_F11:
+        m_window->SetFullscreen();
+        }
+        break;
+
+    default:
+        break;
+    }
+}
+
 void Application::Render()
 {
     /*

@@ -24,6 +24,7 @@ public:
 	*/
 	void Initialize();
 	void Update();
+	void Input(WPARAM wParam);
 	void Render();
 	void Destroy();
 	void Resize();
