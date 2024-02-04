@@ -157,21 +157,29 @@ void Application::Resize()
             m_renderTargets[i].Reset();
         }
 
+        auto width = m_window->GetClientWidth();
+        auto height = m_window->GetClientHeight();
+
         // query the swap chain description so the same colour format and flags can be used to recreate it
         DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
         ThrowIfFailed(m_swapChain->GetDesc(&swapChainDesc));
         // recreate the swap chain with the new size from the same description
         ThrowIfFailed(m_swapChain->ResizeBuffers(
             m_frameCount,
-            m_window->GetClientWidth(),
-            m_window->GetClientHeight(),
+            width,
+            height,
             swapChainDesc.BufferDesc.Format,
             swapChainDesc.Flags
         ));
         // update the back buffer index known by the application, as it may not be the same as the resized version
-        m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+        MoveToNextFrame();
         // as the swap chain buffers have been resized, update their descriptors too
         UpdateRenderTargetViews(m_device, m_rtvHeap, m_swapChain, m_renderTargets);
+
+        // Update the size of the scissor rect
+        m_scissorRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
+        // Update the viewport also    
+        m_viewport = { 0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height) };
 
     }
 }
