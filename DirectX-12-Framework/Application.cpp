@@ -249,7 +249,11 @@ void Application::InitializePipeline()
         }
         
         // Describe and create the Depth Stencil View (DSV) descriptor heap
-
+        D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
+        dsvHeapDesc.NumDescriptors = 1; // 1 depth stencil view,
+        dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;  // in a depth stencil view heap,
+        dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;    // invisible to the shaders.
+        ThrowIfFailed(m_device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_dsvHeap)));
 
 
         // Describe and create a Shader Resource View (SRV) heap for the texture.
@@ -763,6 +767,8 @@ void Application::InitializeAssets()
 
     CreateSampler();
 
+    m_depthStencilView = CreateDepthStencilView();
+
     // Close the command list and execute it to begin the initial GPU setup.
     ThrowIfFailed(m_commandList->Close());
     ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
@@ -978,6 +984,58 @@ Microsoft::WRL::ComPtr<ID3D12Resource> Application::CreateTexture(ID3D12Resource
     return texture;
 }
 
+Microsoft::WRL::ComPtr<ID3D12Resource> Application::CreateDepthStencilView()
+{
+    Microsoft::WRL::ComPtr<ID3D12Resource> dsv;
+
+    // Describe the depth stencil view
+    D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
+    dsvDesc.Format = DXGI_FORMAT_D32_FLOAT; // Depth Stencil View format
+    dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;  // Access DSV as a single texture 2d resource
+    dsvDesc.Flags = D3D12_DSV_FLAG_NONE;    // Indicate the DSV isn't read-only
+
+    D3D12_CLEAR_VALUE depthOptimizedClearValue = {};
+    // Format the clear value as a DS value type
+    depthOptimizedClearValue.Format = DXGI_FORMAT_D32_FLOAT;
+    // Specify a depth stencil value to clear
+    depthOptimizedClearValue.DepthStencil.Depth = 1.0f;
+    depthOptimizedClearValue.DepthStencil.Stencil = 0;
+    
+
+    auto width = m_window->GetClientWidth();
+    auto height = m_window->GetClientHeight();
+    D3D12_RESOURCE_DESC dsDesc = CD3DX12_RESOURCE_DESC::Tex2D(
+        DXGI_FORMAT_D32_FLOAT,  // Use established DS format
+        width,  // Depth Stencil to encompass the whole screen (ensure to resize it alongside the screen.)
+        height, 
+        1,  // Array size of 1
+        0,  // no MIP levels
+        1, 0,   // Sample count and quality (no Anti-Aliasing)
+        D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL // Allow a DSV to be created for the resource and allow it to handle write/read transitions
+    );
+
+    // Create the DSV in an implicit heap that encompasses it
+    {
+        // Upload with a default heap
+        auto uploadHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+        ThrowIfFailed(m_device->CreateCommittedResource(
+            &uploadHeapProps,
+            D3D12_HEAP_FLAG_NONE,
+            &dsDesc,
+            D3D12_RESOURCE_STATE_DEPTH_WRITE,
+            &depthOptimizedClearValue,
+            IID_PPV_ARGS(&dsv)
+        ));
+    }
+
+    // Give it a debug name
+   dsv->SetName(L"m_depthStencilView");
+
+    m_device->CreateDepthStencilView(dsv.Get(), &dsvDesc, m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
+
+    return dsv;
+}
+
 void Application::CreateSampler()
 {
     // Describe and create a sampler.
@@ -1061,6 +1119,7 @@ Microsoft::WRL::ComPtr<ID3D12PipelineState> Application::CreatePipelineStateObje
     pss.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE; // Set the primitive topology to use triangles to draw
     pss.RTVFormats = rtvFormats;    // Render target count & formats
     pss.SampleDesc = sampleDesc;
+    pss.DSVFormat = DXGI_FORMAT_D32_FLOAT;  // Depth Stencil View format
 
     // Wrap Pipeline State Stream into a desc
     D3D12_PIPELINE_STATE_STREAM_DESC pssDesc = {};
@@ -1207,13 +1266,22 @@ void Application::PopulateCommandList()
     auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
     m_commandList->ResourceBarrier(1, &barrier);
 
+    // Set CPU handles for Render Target Views (RTVs) and Depth Stencil Views (DSVs) heaps
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex, m_rtvDescriptorSize);
-    m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+    CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
+    m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
 
     // Record commands.
+    // Clear the RTVs and DSVs
     const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
     m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
-
+    m_commandList->ClearDepthStencilView(
+        dsvHandle,  // Aforementioned handle to DSV heap
+        D3D12_CLEAR_FLAG_DEPTH, // Clear just the depth, not the stencil
+        1.0f,   // Value to clear the depth to  
+        0,  // Value to clear the stencil view
+        0, nullptr  // Clear the whole view. Set these to only clear specific rects.
+    );
 
     m_commandList->ExecuteBundle(m_bundle.Get());
 
