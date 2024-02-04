@@ -267,6 +267,16 @@ void Application::InitializePipeline()
             // How much to offset the shared SRV/SBV heap by to get the next available handle
             m_srvCbvHeapSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
         }
+
+        // Describe and create sampler descriptor heap
+        {
+            D3D12_DESCRIPTOR_HEAP_DESC samplerHeapDesc = {};
+            samplerHeapDesc.NumDescriptors = 1;
+            samplerHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;  // Sampler type
+            samplerHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  // Let the samplers be accessed by shaders
+            ThrowIfFailed(m_device->CreateDescriptorHeap(&samplerHeapDesc, IID_PPV_ARGS(&m_samplerHeap)));
+        }
+
         
     }
 
@@ -751,6 +761,8 @@ void Application::InitializeAssets()
     ComPtr<ID3D12Resource> uploadRes2;
     m_grass = CreateTexture(uploadRes2.Get(), L"Assets/Grass.dds", Descriptors::Grass);
 
+    CreateSampler();
+
     // Close the command list and execute it to begin the initial GPU setup.
     ThrowIfFailed(m_commandList->Close());
     ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
@@ -778,7 +790,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Application::CreateRootSignature()
 
     // Describe descriptor tables to root signature
     // Describe range of descriptor heap encompassed by descriptor table
-    CD3DX12_DESCRIPTOR_RANGE1 ranges[2];
+    CD3DX12_DESCRIPTOR_RANGE1 ranges[3];
     // SRV range
     ranges[0].Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_SRV,    // type of resources within the range
@@ -794,47 +806,43 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Application::CreateRootSignature()
         0,  // base shader register in the range
         0,  // register space, typically 0
         D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC // Descriptors and data are static and will not change (as they're loaded textures)
-
     );
+    // Sampler range
+    ranges[2].Init(
+        D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER,    // Samplers lie within this range
+        1,  // Just one of them
+        0   // Bound to the base register
+    );
+        
 
     // Describe layout of descriptor tables to the root signature based on ranges
-    CD3DX12_ROOT_PARAMETER1 rootParameters[2];
+    CD3DX12_ROOT_PARAMETER1 rootParameters[3];
     // SRV root parameters
     rootParameters[0].InitAsDescriptorTable(
-        1,  // number of descriptors in the range
+        1,  // number of ranges in this table
         &ranges[0], // Descriptor range specified already 
         D3D12_SHADER_VISIBILITY_PIXEL   // Specify that the pixel shader can access these textures
     );
     // CBV root parameters
     rootParameters[1].InitAsDescriptorTable(
-        1,  // number of descriptors in the range
+        1,  // number of ranges in this table
         &ranges[1], // Descriptor range specified already 
         D3D12_SHADER_VISIBILITY_VERTEX   // Specify that the vertex shader can access these textures
     );
+    // Describe sampler descriptor table
+    rootParameters[2].InitAsDescriptorTable(
+        1,  // Number of ranges in this table
+        &ranges[2], // Said descriptor ranges
+        D3D12_SHADER_VISIBILITY_PIXEL   // Only pixel shader need access sampler
+    );
 
-    // define the static samplers, a free part of a root signature
-    // Texture samplers read textures through the GPU
-    D3D12_STATIC_SAMPLER_DESC sampler = {};
-    sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;    // Use point sampling
-    sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;   //How to handle texture coordinates outside of the range
-    sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-    sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-    sampler.MipLODBias = 0; // Offset from calculated mipmap level, for advanced LOD
-    sampler.MaxAnisotropy = 0;  // For anisotropic filtering
-    sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;   // Don't compare existing and new sampling data
-    sampler.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;  // Color to use for texture coordinates outside of range
-    sampler.MinLOD = 0.0f;  // don't limit mipmap quality, min or max
-    sampler.MaxLOD = D3D12_FLOAT32_MAX;
-    sampler.ShaderRegister = 0; // Binding to shader registers
-    sampler.RegisterSpace = 0;
-    sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;   // Specify the pixel shader can access this texture sampler
-
+    
     // Create root signature descriptor 
     CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
     // Use version 1 of root signature layout
     rootSignatureDesc.Init_1_1(
         _countof(rootParameters), rootParameters, // pass layout of descriptor tables
-        1, &sampler, // Pass in static samplers for texture
+        0, nullptr, // We are using a sampler heap rather than static samplers
         D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT    // Use input assembler, i.e. input layout and vertex buffer
     );
 
@@ -856,6 +864,10 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Application::CreateRootSignature()
         signature->GetBufferSize(), // The length of the serialized root signature
         IID_PPV_ARGS(&rootSignature) // GUID of the root signature interface
     ), "Failed to create root signature.\n");
+
+    // Set the debug name for this object
+    rootSignature->SetName(L"m_rootSignature");
+
 
     return rootSignature;
 }
@@ -966,6 +978,22 @@ Microsoft::WRL::ComPtr<ID3D12Resource> Application::CreateTexture(ID3D12Resource
     return texture;
 }
 
+void Application::CreateSampler()
+{
+    // Describe and create a sampler.
+    D3D12_SAMPLER_DESC samplerDesc = {};
+    samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+    samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    samplerDesc.MinLOD = 0;
+    samplerDesc.MaxLOD = D3D12_FLOAT32_MAX;
+    samplerDesc.MipLODBias = 0.0f;
+    samplerDesc.MaxAnisotropy = 1;
+    samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+    m_device->CreateSampler(&samplerDesc, m_samplerHeap->GetCPUDescriptorHandleForHeapStart());
+}
+
 Microsoft::WRL::ComPtr<ID3D12PipelineState> Application::CreatePipelineStateObject(ID3DBlob* pVertexShaderBlob, ID3DBlob* pPixelShaderBlob)
 {
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState;
@@ -1041,6 +1069,9 @@ Microsoft::WRL::ComPtr<ID3D12PipelineState> Application::CreatePipelineStateObje
 
     // Pass descriptor into pipeline state to create PSO object
     ThrowIfFailed(m_device->CreatePipelineState(&pssDesc, IID_PPV_ARGS(&pipelineState)), "Failed to create pipeline state object.\n");
+    // Set name for debugging
+    pipelineState->SetName(L"m_pipelineState");
+
 
     return pipelineState;
 }
@@ -1151,7 +1182,7 @@ void Application::PopulateCommandList()
     // Set necessary state.
     m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
     // Set command list shader resource view and constant buffer view
-    ID3D12DescriptorHeap* ppHeaps[] = { m_srvCbvHeap.Get()};
+    ID3D12DescriptorHeap* ppHeaps[] = { m_srvCbvHeap.Get(), m_samplerHeap.Get()};
     m_commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
 
@@ -1166,7 +1197,8 @@ void Application::PopulateCommandList()
     cbvHeapHandleGPU.Offset(m_srvCbvHeapSize * Descriptors::CBV);
     m_commandList->SetGraphicsRootDescriptorTable(1, cbvHeapHandleGPU);
 
-
+    // Describe how samplers are laid out to GPU
+    m_commandList->SetGraphicsRootDescriptorTable(2, m_samplerHeap->GetGPUDescriptorHandleForHeapStart());
 
     m_commandList->RSSetViewports(1, &m_viewport);
     m_commandList->RSSetScissorRects(1, &m_scissorRect);

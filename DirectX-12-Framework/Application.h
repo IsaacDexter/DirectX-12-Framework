@@ -76,6 +76,7 @@ private:
 #pragma region Resources
 
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_samplerHeap;
 
 	// Vertex buffer
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_vertexBuffer;
@@ -209,6 +210,8 @@ private:
 	* @ returns the newly created texture resource
 	*/
 	Microsoft::WRL::ComPtr<ID3D12Resource> CreateTexture(ID3D12Resource* uploadRes, const wchar_t* path, Descriptors descriptor);
+
+	void CreateSampler();
 
 	/** 
 	* Creates the pipeline state stream, serialized object, and object. 
