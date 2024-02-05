@@ -57,6 +57,9 @@
     <ClInclude Include="..\imgui\backends\imgui_impl_win32.h">
       <Filter>Dear ImGui</Filter>
     </ClInclude>
+    <ClInclude Include="Camera.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -88,6 +91,9 @@
     </ClCompile>
     <ClCompile Include="..\imgui\backends\imgui_impl_win32.cpp">
       <Filter>Dear ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="Camera.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

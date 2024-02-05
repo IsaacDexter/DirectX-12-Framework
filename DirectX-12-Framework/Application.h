@@ -8,6 +8,8 @@
 #include "imgui_impl_win32.h"
 #include <chrono>
 
+#include "Camera.h"
+
 class Window;
 
 class Application
@@ -32,6 +34,7 @@ public:
 
 private:
 	static const UINT m_frameCount = 2;
+	float m_deltaTime = 0.f;
 
 	struct Vertex
 	{
@@ -49,6 +52,7 @@ private:
 	};
 	// Ensure constant buffer is 256-byte aligned
 	static_assert((sizeof(SceneConstantBuffer) % 256) == 0, "Constant Buffer size must be 256-byte aligned");
+
 
 
 #pragma region Pipeline
@@ -121,6 +125,7 @@ private:
 #pragma endregion
 
 	std::shared_ptr<Window> m_window;
+	std::unique_ptr<Camera> m_camera;
 
 private:
 #pragma region Initialization

@@ -11,6 +11,7 @@ Application::Application(HINSTANCE hInstance) :
     m_commandAllocators{}
 {
     m_window = std::make_shared<Window>(hInstance);
+    m_camera = std::make_unique<Camera>(XMFLOAT3(0.0f, 0.0f, 3.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), m_window->GetAspectRatio());
 
     auto width = m_window->GetClientWidth();
     auto height = m_window->GetClientHeight();
@@ -56,8 +57,8 @@ void Application::Update()
     timeLast = timeNow;
 
     // add the delta time, in seconds, since the last frame
-    auto deltaTime = timeSince.count() * 1e-9;
-    elapsedSeconds += deltaTime;
+    m_deltaTime = timeSince.count() * 1e-9;
+    elapsedSeconds += m_deltaTime;
 
     // output the FPS
     // if it's been a second...
@@ -77,13 +78,11 @@ void Application::Update()
 
     // Update Model View Projection (MVP) Matrix according to camera position
     {
-        XMFLOAT3 position(1.0f, 0.0f, 3.0f);
-        XMFLOAT3 direction(0.0f, 0.0f, -1.0f);
-        XMFLOAT3 up(0.0f, 1.0f, 0.0f);
+
 
         XMMATRIX model = XMMatrixIdentity();
-        XMMATRIX view = XMMatrixLookToLH(XMLoadFloat3(&position), XMLoadFloat3(&direction), XMLoadFloat3(&up));
-        XMMATRIX projection = XMMatrixPerspectiveFovLH(0.8f, m_window->GetAspectRatio(), 1.0f, 1000.0f);
+        XMMATRIX view = m_camera->GetView();
+        XMMATRIX projection = m_camera->GetProj();
 
         XMFLOAT4X4 mvp;
         XMStoreFloat4x4(&mvp, XMMatrixTranspose(model * view * projection));
@@ -119,6 +118,13 @@ void Application::Input(WPARAM wParam)
         }
         break;
 
+    case 'A':
+    {
+        auto position = m_camera->GetPosition();
+        position.x += 5.0f * m_deltaTime;
+        m_camera->SetPosition(position);
+        break;
+    }
     default:
         break;
     }
@@ -209,7 +215,8 @@ void Application::Resize()
         m_scissorRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
         // Update the viewport also    
         m_viewport = { 0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height) };
-
+        // Update camera aspect ratio
+        m_camera->SetAspectRatio(m_window->GetAspectRatio());
     }
 }
 
@@ -739,11 +746,11 @@ void Application::InitializeAssets()
             { { -0.5f, -0.5f,  0.5f}, {0.0f, 1.0f } },
             { { -0.5f,  0.5f, -0.5f}, {1.0f, 0.0f } },
 
-            //// back face
-            //{ {  0.5f,  0.5f,  0.5f}, {0.0f, 0.0f } },
-            //{ { -0.5f, -0.5f,  0.5f}, {1.0f, 1.0f } },
-            //{ {  0.5f, -0.5f,  0.5f}, {0.0f, 1.0f } },
-            //{ { -0.5f,  0.5f,  0.5f}, {1.0f, 0.0f } },
+            // back face
+            { {  0.5f,  0.5f,  0.5f}, {0.0f, 0.0f } },
+            { { -0.5f, -0.5f,  0.5f}, {1.0f, 1.0f } },
+            { {  0.5f, -0.5f,  0.5f}, {0.0f, 1.0f } },
+            { { -0.5f,  0.5f,  0.5f}, {1.0f, 0.0f } },
 
             // top face
             { { -0.5f,  0.5f, -0.5f}, {0.0f, 1.0f } },
