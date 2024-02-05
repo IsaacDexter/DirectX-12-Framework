@@ -82,8 +82,8 @@ void Application::Update()
         XMFLOAT3 up(0.0f, 1.0f, 0.0f);
 
         XMMATRIX model = XMMatrixIdentity();
-        XMMATRIX view = XMMatrixLookToRH(XMLoadFloat3(&position), XMLoadFloat3(&direction), XMLoadFloat3(&up));
-        XMMATRIX projection = XMMatrixPerspectiveFovRH(0.8f, m_window->GetAspectRatio(), 1.0f, 1000.0f);
+        XMMATRIX view = XMMatrixLookToLH(XMLoadFloat3(&position), XMLoadFloat3(&direction), XMLoadFloat3(&up));
+        XMMATRIX projection = XMMatrixPerspectiveFovLH(0.8f, m_window->GetAspectRatio(), 1.0f, 1000.0f);
 
         XMFLOAT4X4 mvp;
         XMStoreFloat4x4(&mvp, XMMatrixTranspose(model * view * projection));
@@ -254,18 +254,21 @@ void Application::InitializePipeline()
             rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;  //RTV type
             rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;    // This heap needs no binding to pipeline
             ThrowIfFailed(m_device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_rtvHeap)));
+            m_rtvHeap->SetName(L"m_rtvHeap");
 
             // How much to offset the shared RTV heap by to get the next available handle
             m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
         }
         
         // Describe and create the Depth Stencil View (DSV) descriptor heap
-        D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
-        dsvHeapDesc.NumDescriptors = 1; // 1 depth stencil view,
-        dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;  // in a depth stencil view heap,
-        dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;    // invisible to the shaders.
-        ThrowIfFailed(m_device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_dsvHeap)));
-
+        {
+            D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
+            dsvHeapDesc.NumDescriptors = 1; // 1 depth stencil view,
+            dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;  // in a depth stencil view heap,
+            dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;    // invisible to the shaders.
+            ThrowIfFailed(m_device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_dsvHeap)));
+            m_dsvHeap->SetName(L"m_dsvHeap");
+        }
 
         // Describe and create a Shader Resource View (SRV) heap for the texture.
         // This heap also contains the Constant Buffer Views. These are in the same heap because
@@ -278,6 +281,7 @@ void Application::InitializePipeline()
             srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;  // SRV type
             srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  // Allow this heap to be bound to the pipeline
             ThrowIfFailed(m_device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_srvCbvHeap)));
+            m_srvCbvHeap->SetName(L"m_srvCbvHeap");
 
             // How much to offset the shared SRV/SBV heap by to get the next available handle
             m_srvCbvHeapSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -290,6 +294,7 @@ void Application::InitializePipeline()
             samplerHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;  // Sampler type
             samplerHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  // Let the samplers be accessed by shaders
             ThrowIfFailed(m_device->CreateDescriptorHeap(&samplerHeapDesc, IID_PPV_ARGS(&m_samplerHeap)));
+            m_samplerHeap->SetName(L"m_samplerHeap");
         }
 
         
@@ -734,11 +739,11 @@ void Application::InitializeAssets()
             { { -0.5f, -0.5f,  0.5f}, {0.0f, 1.0f } },
             { { -0.5f,  0.5f, -0.5f}, {1.0f, 0.0f } },
 
-            // back face
-            { {  0.5f,  0.5f,  0.5f}, {0.0f, 0.0f } },
-            { { -0.5f, -0.5f,  0.5f}, {1.0f, 1.0f } },
-            { {  0.5f, -0.5f,  0.5f}, {0.0f, 1.0f } },
-            { { -0.5f,  0.5f,  0.5f}, {1.0f, 0.0f } },
+            //// back face
+            //{ {  0.5f,  0.5f,  0.5f}, {0.0f, 0.0f } },
+            //{ { -0.5f, -0.5f,  0.5f}, {1.0f, 1.0f } },
+            //{ {  0.5f, -0.5f,  0.5f}, {0.0f, 1.0f } },
+            //{ { -0.5f,  0.5f,  0.5f}, {1.0f, 0.0f } },
 
             // top face
             { { -0.5f,  0.5f, -0.5f}, {0.0f, 1.0f } },
@@ -957,16 +962,7 @@ void Application::InitializeAssets()
     }
     
 
-    // Create and record the bundle for drawing the triangle
-    {
-        ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_BUNDLE, m_bundleAllocator.Get(), m_pipelineState.Get(), IID_PPV_ARGS(&m_bundle)));
-        m_bundle->SetGraphicsRootSignature(m_rootSignature.Get());
-        m_bundle->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-        m_bundle->IASetVertexBuffers(0, 1, &m_vertexBufferView);
-        m_bundle->IASetIndexBuffer(&m_indexBufferView);
-        m_bundle->DrawIndexedInstanced(m_numIndices, 1, 0, 0, 0);
-        ThrowIfFailed(m_bundle->Close());
-    }
+    
 
     
 
@@ -987,6 +983,17 @@ void Application::InitializeAssets()
     CreateSampler();
 
     UpdateDepthStencilView(m_dsv, m_dsvHeap);
+
+    // Create and record the bundle for drawing the triangle
+    {
+        ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_BUNDLE, m_bundleAllocator.Get(), m_pipelineState.Get(), IID_PPV_ARGS(&m_bundle)));
+        m_bundle->SetGraphicsRootSignature(m_rootSignature.Get());
+        m_bundle->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        m_bundle->IASetVertexBuffers(0, 1, &m_vertexBufferView);
+        m_bundle->IASetIndexBuffer(&m_indexBufferView);
+        m_bundle->DrawIndexedInstanced(m_numIndices, 1, 0, 0, 0);
+        ThrowIfFailed(m_bundle->Close());
+    }
 
     // Close the command list and execute it to begin the initial GPU setup.
     ThrowIfFailed(m_commandList->Close());
