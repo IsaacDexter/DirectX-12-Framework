@@ -81,8 +81,9 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_samplerHeap;
 
-	// Vertex buffer
+	// Vertex & Index buffer
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_vertexBuffer;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_indexBuffer;
 	D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;
 
 	// Texture
