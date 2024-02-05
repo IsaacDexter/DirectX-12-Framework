@@ -77,7 +77,7 @@ void Application::Update()
 
     // Update Model View Projection (MVP) Matrix according to camera position
     {
-        XMFLOAT3 position(0.0f, 0.0f, 1.0f);
+        XMFLOAT3 position(1.0f, 0.0f, 3.0f);
         XMFLOAT3 direction(0.0f, 0.0f, -1.0f);
         XMFLOAT3 up(0.0f, 1.0f, 0.0f);
 
@@ -225,7 +225,15 @@ void Application::Resize()
 void Application::InitializePipeline()
 {
 #if defined (_DEBUG)
-    auto debugLayer = EnableDebugLayer();
+    {
+        ComPtr<ID3D12Debug> debugController;
+        if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
+        {
+            debugController->EnableDebugLayer();
+
+            
+        }
+    }
 #endif
     // create the device
     auto hardwareAdapter = GetAdapter(m_useWarpDevice);
@@ -409,7 +417,7 @@ Microsoft::WRL::ComPtr<ID3D12Device4> Application::CreateDevice(Microsoft::WRL::
     {
         pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);    //sets a message severity level to break on with debugger
         pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
-        pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE);
+        pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, FALSE);
 
         // suppress whole categories of messages
         //D3D12_MESSAGE_CATEGORY Categories[] = {};
@@ -425,6 +433,7 @@ Microsoft::WRL::ComPtr<ID3D12Device4> Application::CreateDevice(Microsoft::WRL::
             D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE,   // warning when render target is cleared using a clear color
             D3D12_MESSAGE_ID_MAP_INVALID_NULLRANGE,                         // This warning occurs when using capture frame while graphics debugging.
             D3D12_MESSAGE_ID_UNMAP_INVALID_NULLRANGE,                       // This warning occurs when using capture frame while graphics debugging.
+            D3D12_MESSAGE_ID_CREATERESOURCE_STATE_IGNORED
         };
 
         //info queue filter is defined and filter is pushed onto info queue
@@ -699,6 +708,9 @@ void Application::InitializeAssets()
     ), "Failed to create command list.\n");
 
 
+    // Create an upload heap to upload vertex data to the GPU vertex buffer heap
+    ComPtr<ID3D12Resource> vbUploadHeap;
+
     // Create vertex buffer
     {
         // Define the geometry for a cube.
@@ -749,7 +761,7 @@ void Application::InitializeAssets()
             // Create a default heap
             CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_DEFAULT);
             // Create a buffer large enough to encompass the vertex data
-            auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(vbSize);
+            CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(vbSize);
 
 
             // Create the vertex buffer as a committed resource and an implicit heap big enough to contain it, and commit the resource to the heap.
@@ -762,9 +774,9 @@ void Application::InitializeAssets()
                 IID_PPV_ARGS(&m_vertexBuffer)   // GUID of vertex buffer interface
             ), "Failed to create vertex buffer.\n");
         }
+        m_vertexBuffer->SetName(L"m_vertexBuffer");
 
-        // Create an upload heap to upload vertex data to the GPU vertex buffer heap
-        ComPtr<ID3D12Resource> vbUploadHeap;
+        
 
         // create upload heap to transfer vertex buffer data to the vertex buffer
         {
@@ -784,6 +796,7 @@ void Application::InitializeAssets()
                 IID_PPV_ARGS(&vbUploadHeap)
             ), "Failed to create vertex buffer upload heap.\n");
         }
+        vbUploadHeap->SetName(L"vbUploadHeap");
 
         // Store vertex buffer in upload heap
         D3D12_SUBRESOURCE_DATA vertexData = {};
@@ -814,22 +827,19 @@ void Application::InitializeAssets()
             // Queue the aforementioned transition in the command list
             m_commandList->ResourceBarrier(1, &transitionBarrier);
         }
+
+        // create vertex buffer view, used to tell input assembler where vertices are stored in GPU memory
+        {
+            m_vertexBufferView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress(); // specify D3D12_GPU_VIRTUAL_ADDRESS that identifies buffer address
+            m_vertexBufferView.SizeInBytes = vbSize;    // specify size of the buffer in bytes
+            m_vertexBufferView.StrideInBytes = sizeof(vertices[0]);  // specify size in bytes of each vertex entry in buffer 
+        }
     }
 
-    //// Copy vertex data into the vertex buffer
-    //UINT8* pVertexDataBegin;
-    //CD3DX12_RANGE readRange(0, 0);        // Resource not intended to be read on CPU
-    //ThrowIfFailed(m_vertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin)), "Failed to copy vertex data into vertex buffer.\n");
-    //memcpy(pVertexDataBegin, vertices, vbSize);
-    //m_vertexBuffer->Unmap(0, nullptr);
+    
 
-    //// TODO: create a copy command queue and call UpdateBufferResource
-
-    //// create vertex buffer view, used to tell input assembler where vertices are stored in GPU memory
-    //m_vertexBufferView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress(); // specify D3D12_GPU_VIRTUAL_ADDRESS that identifies buffer address
-    //m_vertexBufferView.SizeInBytes = vbSize;    // specify size of the buffer in bytes
-    //m_vertexBufferView.StrideInBytes = sizeof(Vertex);  // specify size in bytes of each vertex entry in buffer 
-
+    // Create an upload heap to upload index data to the GPU index buffer heap
+    ComPtr<ID3D12Resource> ibUploadHeap;
 
     // Create index buffer
     {
@@ -863,7 +873,7 @@ void Application::InitializeAssets()
 
         UINT ibSize = sizeof(indices);
 
-        UINT numIndices = ibSize / sizeof(indices[0]);
+        m_numIndices = ibSize / sizeof(indices[0]);
 
         // Create the index buffer in an implicit copy heap,
         // which we will copy to from an upload heap to upload to the GPU
@@ -884,9 +894,9 @@ void Application::InitializeAssets()
                 IID_PPV_ARGS(&m_indexBuffer)   // GUID of index buffer interface
             ), "Failed to create index buffer.\n");
         }
+        m_indexBuffer->SetName(L"m_indexBuffer");
 
-        // Create an upload heap to upload index data to the GPU index buffer heap
-        ComPtr<ID3D12Resource> ibUploadHeap;
+        
 
         // create upload heap to transfer Index Buffer (IB) data to the IB
         {
@@ -906,6 +916,7 @@ void Application::InitializeAssets()
                 IID_PPV_ARGS(&ibUploadHeap)
             ), "Failed to create index buffer upload heap.\n");
         }
+        ibUploadHeap->SetName(L"ibUploadHeap");
 
         // Store index buffer in upload heap
         D3D12_SUBRESOURCE_DATA indexData = {};
@@ -936,6 +947,13 @@ void Application::InitializeAssets()
             // Queue the aforementioned transition in the command list
             m_commandList->ResourceBarrier(1, &transitionBarrier);
         }
+
+        // create index buffer view, used to tell input assembler where indices are stored in GPU memory
+        {
+            m_indexBufferView.BufferLocation = m_indexBuffer->GetGPUVirtualAddress(); // specify D3D12_GPU_VIRTUAL_ADDRESS that identifies buffer address
+            m_indexBufferView.SizeInBytes = ibSize;    // specify size of the buffer in bytes
+            m_indexBufferView.Format = DXGI_FORMAT_R32_UINT;    // Specify DWORD as format
+        }
     }
     
 
@@ -945,7 +963,8 @@ void Application::InitializeAssets()
         m_bundle->SetGraphicsRootSignature(m_rootSignature.Get());
         m_bundle->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         m_bundle->IASetVertexBuffers(0, 1, &m_vertexBufferView);
-        m_bundle->DrawInstanced(6, 1, 0, 0);
+        m_bundle->IASetIndexBuffer(&m_indexBufferView);
+        m_bundle->DrawIndexedInstanced(m_numIndices, 1, 0, 0, 0);
         ThrowIfFailed(m_bundle->Close());
     }
 
