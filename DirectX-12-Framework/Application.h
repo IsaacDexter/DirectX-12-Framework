@@ -77,7 +77,7 @@ private:
 #pragma region Resources
 
 
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_depthStencilView;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_dsv;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_samplerHeap;
 
@@ -208,7 +208,7 @@ private:
 
 	void CreateConstantBuffer();
 
-	Microsoft::WRL::ComPtr<ID3D12Resource> CreateDepthStencilView();
+	void UpdateDepthStencilView(Microsoft::WRL::ComPtr<ID3D12Resource> &dsv, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& dsvHeap);
 
 	/** 
 	* Loads and creates a given texture into a resource.

@@ -204,7 +204,7 @@ void Application::Resize()
         MoveToNextFrame();
         // as the swap chain buffers have been resized, update their descriptors too
         UpdateRenderTargetViews(m_device, m_rtvHeap, m_swapChain, m_renderTargets);
-
+        UpdateDepthStencilView(m_dsv, m_dsvHeap);
         // Update the size of the scissor rect
         m_scissorRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
         // Update the viewport also    
@@ -986,7 +986,7 @@ void Application::InitializeAssets()
 
     CreateSampler();
 
-    m_depthStencilView = CreateDepthStencilView();
+    UpdateDepthStencilView(m_dsv, m_dsvHeap);
 
     // Close the command list and execute it to begin the initial GPU setup.
     ThrowIfFailed(m_commandList->Close());
@@ -1203,10 +1203,8 @@ Microsoft::WRL::ComPtr<ID3D12Resource> Application::CreateTexture(ID3D12Resource
     return texture;
 }
 
-Microsoft::WRL::ComPtr<ID3D12Resource> Application::CreateDepthStencilView()
+void Application::UpdateDepthStencilView(Microsoft::WRL::ComPtr<ID3D12Resource>& dsv, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& dsvHeap)
 {
-    Microsoft::WRL::ComPtr<ID3D12Resource> dsv;
-
     // Describe the depth stencil view
     D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
     dsvDesc.Format = DXGI_FORMAT_D32_FLOAT; // Depth Stencil View format
@@ -1250,9 +1248,7 @@ Microsoft::WRL::ComPtr<ID3D12Resource> Application::CreateDepthStencilView()
     // Give it a debug name
    dsv->SetName(L"m_depthStencilView");
 
-    m_device->CreateDepthStencilView(dsv.Get(), &dsvDesc, m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
-
-    return dsv;
+    m_device->CreateDepthStencilView(dsv.Get(), &dsvDesc, dsvHeap->GetCPUDescriptorHandleForHeapStart());
 }
 
 void Application::CreateSampler()
