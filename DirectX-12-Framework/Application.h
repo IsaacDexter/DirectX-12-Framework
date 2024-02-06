@@ -9,6 +9,7 @@
 #include <chrono>
 
 #include "Camera.h"
+#include "Controls.h"
 
 class Window;
 
@@ -26,7 +27,14 @@ public:
 	*/
 	void Initialize();
 	void Update();
-	void Input(WPARAM wParam);
+	/**
+	* Handle keyboard input
+	*/
+	void KeyboardInput(WPARAM wParam);
+	/**
+	* Handle mouse input
+	*/
+	void MouseInput(int dX, int dY);
 	void Render();
 	void Destroy();
 	void Resize();
@@ -34,7 +42,6 @@ public:
 
 private:
 	static const UINT m_frameCount = 2;
-	float m_deltaTime = 0.f;
 
 	struct Vertex
 	{

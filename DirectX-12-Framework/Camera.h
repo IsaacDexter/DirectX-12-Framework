@@ -12,6 +12,11 @@ private:
     float m_fov;
     float m_nearZ;
     float m_farZ;
+    float m_speed;
+
+    WPARAM m_input;
+    int m_dX;
+    int m_dY;
 public:
     Camera(DirectX::XMFLOAT3 position, DirectX::XMFLOAT3 direction, DirectX::XMFLOAT3 up, float aspectRatio = 1280 / 720);
 
@@ -47,5 +52,33 @@ public:
         return m_position;
     }
 
+    void KeyboardInput(WPARAM input)
+    {
+        m_input = input;
+    }
+    
+    void MouseInput(int dX, int dY)
+    {
+        m_dX += dX;
+        m_dY += dY;
+    }
+
+    void Update(const float& deltaTime);
+private:
+    void MoveForward(float distance);
+    void MoveBackward(float distance)
+    {
+        MoveForward(-distance);
+    }
+    void MoveRight(float distance);
+    void MoveLeft(float distance)
+    {
+        MoveRight(-distance);
+    }
+    void MoveUp(float distance);
+    void MoveDown(float distance)
+    {
+        MoveUp(-distance);
+    }
 };
 

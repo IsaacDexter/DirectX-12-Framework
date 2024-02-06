@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "Application.h"
 #include "Window.h"
+// For mouse input helpers
+#include <windowsx.h>
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow);
 
@@ -55,7 +57,32 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		case WM_SYSKEYDOWN:
 		case WM_KEYDOWN:
 		{
-			g_application->Input(wParam);
+			g_application->KeyboardInput(wParam);
+			break;
+		}
+		case WM_MOUSEMOVE:
+		{
+			static auto lastX = GET_X_LPARAM(lParam);
+			static auto lastY = GET_Y_LPARAM(lParam);
+			auto x = GET_X_LPARAM(lParam);
+			auto y = GET_Y_LPARAM(lParam);
+
+			switch (wParam)
+			{
+			case MK_LBUTTON:
+			{
+
+				auto dX = x - lastX;
+				auto dY = y - lastY;
+				g_application->MouseInput(dX, dY);
+				break;
+			}
+			default:
+				break;
+			}
+
+			lastX = x;
+			lastY = y;
 			break;
 		}
 		case WM_DESTROY:

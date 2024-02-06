@@ -57,8 +57,8 @@ void Application::Update()
     timeLast = timeNow;
 
     // add the delta time, in seconds, since the last frame
-    m_deltaTime = timeSince.count() * 1e-9;
-    elapsedSeconds += m_deltaTime;
+    auto deltaTime = timeSince.count() * 1e-9;
+    elapsedSeconds += deltaTime;
 
     // output the FPS
     // if it's been a second...
@@ -67,13 +67,16 @@ void Application::Update()
 
         auto fps = frameCounter / elapsedSeconds;
         char buffer[500];
-        sprintf_s(buffer, 500, "FPS: %f\n", fps);
+        sprintf_s(buffer, 500, "FPS: %f, DT: %f\n", fps, deltaTime);
         OutputDebugStringA(buffer);
 
         // reset counters
         frameCounter = 0;
         elapsedSeconds = 0.0;
     }
+
+    // Update the camera based on input previously passed to it.
+    m_camera->Update(deltaTime);
 
 
     // Update Model View Projection (MVP) Matrix according to camera position
@@ -97,7 +100,7 @@ void Application::Update()
     UpdateGUI();
 }
 
-void Application::Input(WPARAM wParam)
+void Application::KeyboardInput(WPARAM wParam)
 {
     bool alt = (::GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
 
@@ -107,6 +110,7 @@ void Application::Input(WPARAM wParam)
     case VK_ESCAPE:
     {
         ::PostQuitMessage(0);
+        Destroy();
         break;
     }
         // Toggle Fullscreen
@@ -117,17 +121,18 @@ void Application::Input(WPARAM wParam)
         m_window->SetFullscreen();
         }
         break;
-
-    case 'A':
-    {
-        auto position = m_camera->GetPosition();
-        position.x += 5.0f * m_deltaTime;
-        m_camera->SetPosition(position);
-        break;
-    }
     default:
         break;
     }
+
+    // Pass input to the camera to handle of it's own accord.
+    m_camera->KeyboardInput(wParam);
+
+}
+
+void Application::MouseInput(int dX, int dY)
+{
+    m_camera->MouseInput(dX, dY);
 }
 
 void Application::Render()
