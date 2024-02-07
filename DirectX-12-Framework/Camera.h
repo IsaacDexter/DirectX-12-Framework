@@ -14,7 +14,13 @@ private:
     float m_farZ;
     float m_speed;
 
-    WPARAM m_input;
+    bool m_moveLeft;
+    bool m_moveRight;
+    bool m_moveUp;
+    bool m_moveDown;
+    bool m_moveForward;
+    bool m_moveBackward;
+
     int m_dX;
     int m_dY;
 public:
@@ -52,10 +58,8 @@ public:
         return m_position;
     }
 
-    void KeyboardInput(WPARAM input)
-    {
-        m_input = input;
-    }
+    void OnKeyDown(WPARAM input);
+    void OnKeyUp(WPARAM input);
     
     void MouseInput(int dX, int dY)
     {

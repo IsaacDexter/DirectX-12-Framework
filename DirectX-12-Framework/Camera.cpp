@@ -12,9 +12,14 @@ Camera::Camera(DirectX::XMFLOAT3 position, DirectX::XMFLOAT3 direction, DirectX:
 	m_nearZ(1.0f),
 	m_farZ(1000.0f),
 	m_speed(5.0f),
-	m_input(NULL),
 	m_dX(0),
-	m_dY(0)
+	m_dY(0),
+	m_moveRight(false),
+	m_moveLeft(false),
+	m_moveUp(false),
+	m_moveDown(false),
+	m_moveForward(false),
+	m_moveBackward(false)
 {
 	
 
@@ -30,90 +35,154 @@ const DirectX::XMMATRIX& Camera::GetProj()
 	return XMMatrixPerspectiveFovLH(0.8f, m_aspectRatio, m_nearZ, m_farZ);
 }
 
-void Camera::Update(const float& deltaTime)
+void Camera::OnKeyDown(WPARAM input)
 {
 	// Update Based on keyboard input since last frame:
-	switch (m_input)
+	switch (input)
 	{
 	case Controls::MoveRight:
 	{
-		MoveRight(m_speed * deltaTime);
+		m_moveRight = true;
 		break;
 	}
 	case Controls::MoveLeft:
 	{
-		MoveLeft(m_speed * deltaTime);
+		m_moveLeft = true;
 		break;
 	}
 	case Controls::MoveUp:
 	{
-		MoveUp(m_speed * deltaTime);
+		m_moveUp = true;
 		break;
 	}
 	case Controls::MoveDown:
 	{
-		MoveDown(m_speed * deltaTime);
+		m_moveDown = true;
 		break;
 	}
 	case Controls::MoveForward:
 	{
-		MoveForward(m_speed * deltaTime);
+		m_moveForward = true;
 		break;
 	}
 	case Controls::MoveBackward:
 	{
-		MoveBackward(m_speed * deltaTime);
+		m_moveBackward = true;
 		break;
 	}
 	default:
 		break;
 	}
+}
 
-	// Update based on mouse input, if input has changed
-	if (m_dX != 0 || m_dY != 0)
+void Camera::OnKeyUp(WPARAM input)
+{
+	// Update Based on keyboard input since last frame:
+	switch (input)
 	{
-		// Apply sensitivity
-		float dX = m_dX * Controls::sensitivity; // Yaw change
-		float dY = m_dY * Controls::sensitivity; // Pitch change
+	case Controls::MoveRight:
+	{
+		m_moveRight = false;
+		break;
+	}
+	case Controls::MoveLeft:
+	{
+		m_moveLeft = false;
+		break;
+	}
+	case Controls::MoveUp:
+	{
+		m_moveUp = false;
+		break;
+	}
+	case Controls::MoveDown:
+	{
+		m_moveDown = false;
+		break;
+	}
+	case Controls::MoveForward:
+	{
+		m_moveForward = false;
+		break;
+	}
+	case Controls::MoveBackward:
+	{
+		m_moveBackward = false;
+		break;
+	}
+	default:
+		break;
+	}
+}
 
-
-		// Get the current look direction and up vector
-		XMVECTOR lookDirVec = XMLoadFloat3(&m_direction);
-		lookDirVec = XMVector3Normalize(lookDirVec);
-		XMVECTOR upVec = XMLoadFloat3(&m_up);
-		upVec = XMVector3Normalize(upVec);
-
-		// Calculate the camera's right vector
-		XMVECTOR rightVec = XMVector3Cross(upVec, lookDirVec);
-		rightVec = XMVector3Normalize(rightVec);
-
-
-
-		// Rotate the lookDir vector left or right based on the yaw
-		lookDirVec = XMVector3Transform(lookDirVec, XMMatrixRotationAxis(upVec, dX));
-		lookDirVec = XMVector3Normalize(lookDirVec);
-
-		// Rotate the lookDir vector up or down based on the pitch
-		lookDirVec = XMVector3Transform(lookDirVec, XMMatrixRotationAxis(rightVec, dY));
-		lookDirVec = XMVector3Normalize(lookDirVec);
-
-
-		// Re-calculate the right vector after the yaw rotation
-		rightVec = XMVector3Cross(upVec, lookDirVec);
-		rightVec = XMVector3Normalize(rightVec);
-
-		// Re-orthogonalize the up vector to be perpendicular to the look direction and right vector
-		upVec = XMVector3Cross(lookDirVec, rightVec);
-		upVec = XMVector3Normalize(upVec);
-
-		// Store the updated vectors back to the class members
-		XMStoreFloat3(&m_direction, lookDirVec);
-		XMStoreFloat3(&m_up, upVec);
+void Camera::Update(const float& deltaTime)
+{
+	// Move according to previously recieved keybard input
+	{
+		if(m_moveRight)
+			MoveRight(m_speed * deltaTime);
+		if(m_moveLeft)
+			MoveLeft(m_speed * deltaTime);
+		if(m_moveUp)
+			MoveUp(m_speed * deltaTime);
+		if(m_moveDown)
+			MoveDown(m_speed * deltaTime);
+		if(m_moveForward)
+			MoveForward(m_speed * deltaTime);
+		if(m_moveBackward)
+			MoveBackward(m_speed * deltaTime);
 	}
 
 
-	// remove the input to prevent duplicate inputs. It's a rather rudimentary camera.
-	m_input = NULL;
+
+
+
+	// Update based on mouse input, if input has changed
+	{
+		if (m_dX != 0 || m_dY != 0)
+		{
+			// Apply sensitivity
+			float dX = m_dX * Controls::sensitivity; // Yaw change
+			float dY = m_dY * Controls::sensitivity; // Pitch change
+
+
+			// Get the current look direction and up vector
+			XMVECTOR lookDirVec = XMLoadFloat3(&m_direction);
+			lookDirVec = XMVector3Normalize(lookDirVec);
+			XMVECTOR upVec = XMLoadFloat3(&m_up);
+			upVec = XMVector3Normalize(upVec);
+
+			// Calculate the camera's right vector
+			XMVECTOR rightVec = XMVector3Cross(upVec, lookDirVec);
+			rightVec = XMVector3Normalize(rightVec);
+
+
+
+			// Rotate the lookDir vector left or right based on the yaw
+			lookDirVec = XMVector3Transform(lookDirVec, XMMatrixRotationAxis(upVec, dX));
+			lookDirVec = XMVector3Normalize(lookDirVec);
+
+			// Rotate the lookDir vector up or down based on the pitch
+			lookDirVec = XMVector3Transform(lookDirVec, XMMatrixRotationAxis(rightVec, dY));
+			lookDirVec = XMVector3Normalize(lookDirVec);
+
+
+			// Re-calculate the right vector after the yaw rotation
+			rightVec = XMVector3Cross(upVec, lookDirVec);
+			rightVec = XMVector3Normalize(rightVec);
+
+			// Re-orthogonalize the up vector to be perpendicular to the look direction and right vector
+			upVec = XMVector3Cross(lookDirVec, rightVec);
+			upVec = XMVector3Normalize(upVec);
+
+			// Store the updated vectors back to the class members
+			XMStoreFloat3(&m_direction, lookDirVec);
+			//XMStoreFloat3(&m_up, upVec);
+		}
+	}
+
+
+	// Reset the change in mose motion each frame
 	m_dX = 0;
 	m_dY = 0;
 }

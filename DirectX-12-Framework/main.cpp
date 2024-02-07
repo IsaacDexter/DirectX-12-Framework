@@ -57,7 +57,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		case WM_SYSKEYDOWN:
 		case WM_KEYDOWN:
 		{
-			g_application->KeyboardInput(wParam);
+			g_application->OnKeyDown(wParam);
+			break;
+		}
+		case WM_SYSKEYUP:
+		case WM_KEYUP:
+		{
+			g_application->OnKeyUp(wParam);
 			break;
 		}
 		case WM_MOUSEMOVE:
@@ -74,7 +80,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 				auto dX = x - lastX;
 				auto dY = y - lastY;
-				g_application->MouseInput(dX, dY);
+				g_application->OnMouseMove(dX, dY);
 				break;
 			}
 			default:

@@ -30,11 +30,12 @@ public:
 	/**
 	* Handle keyboard input
 	*/
-	void KeyboardInput(WPARAM wParam);
+	void OnKeyDown(WPARAM wParam);
+	void OnKeyUp(WPARAM wParam);
 	/**
 	* Handle mouse input
 	*/
-	void MouseInput(int dX, int dY);
+	void OnMouseMove(int dX, int dY);
 	void Render();
 	void Destroy();
 	void Resize();

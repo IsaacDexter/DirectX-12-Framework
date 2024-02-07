@@ -100,7 +100,7 @@ void Application::Update()
     UpdateGUI();
 }
 
-void Application::KeyboardInput(WPARAM wParam)
+void Application::OnKeyDown(WPARAM wParam)
 {
     bool alt = (::GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
 
@@ -126,11 +126,16 @@ void Application::KeyboardInput(WPARAM wParam)
     }
 
     // Pass input to the camera to handle of it's own accord.
-    m_camera->KeyboardInput(wParam);
+    m_camera->OnKeyDown(wParam);
 
 }
 
-void Application::MouseInput(int dX, int dY)
+void Application::OnKeyUp(WPARAM wParam)
+{
+    m_camera->OnKeyUp(wParam);
+}
+
+void Application::OnMouseMove(int dX, int dY)
 {
     m_camera->MouseInput(dX, dY);
 }
