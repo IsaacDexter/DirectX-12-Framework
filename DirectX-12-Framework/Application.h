@@ -85,11 +85,13 @@ private:
 
 	enum Descriptors
 	{
-		Tiles,
-		Grass,
 		Object1,
 		Object2,
+		Tiles,
+		Grass,
+		Sand,
 		GUI,
+		Count,
 	};
 	enum RootParameterIndices
 	{
@@ -119,6 +121,7 @@ private:
 	std::shared_ptr<Model> m_cube;
 	std::shared_ptr<Texture> m_tiles;
 	std::shared_ptr<Texture> m_grass;
+	std::shared_ptr<Texture> m_sand;
 
 private:
 #pragma region Initialization

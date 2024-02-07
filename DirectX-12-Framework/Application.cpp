@@ -4,7 +4,7 @@
 using namespace Microsoft::WRL;
 using namespace DirectX;
 
-//#define _GUI
+#define _GUI
 
 Application::Application(HINSTANCE hInstance) :
     m_fenceValues{},
@@ -279,7 +279,7 @@ void Application::InitializePipeline()
         // https://learn.microsoft.com/en-us/windows/win32/direct3d12/resource-binding-flow-of-control
         {
             D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-            srvHeapDesc.NumDescriptors = 4;
+            srvHeapDesc.NumDescriptors = Descriptors::Count;
             srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;  // SRV type
             srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  // Allow this heap to be bound to the pipeline
             ThrowIfFailed(m_device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_srvCbvHeap)));
@@ -690,6 +690,21 @@ void Application::InitializeAssets()
         m_grass = std::make_unique<Texture>(cpuDescriptorHandle, gpuDescriptorHandle, rootParameterIndex);
         m_grass->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Grass.dds");
     }
+    {
+        CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart(), Descriptors::Sand, m_srvCbvHeapSize);
+        CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorHandle(m_srvCbvHeap->GetGPUDescriptorHandleForHeapStart(), Descriptors::Sand, m_srvCbvHeapSize);
+        UINT rootParameterIndex = RootParameterIndices::SRV;
+        m_sand = std::make_unique<Texture>(cpuDescriptorHandle, gpuDescriptorHandle, rootParameterIndex);
+        m_sand->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Sand.dds");
+    }
+    // Reserve the Dear ImGui texture
+    /*{
+        CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart(), Descriptors::GUI, m_srvCbvHeapSize);
+        CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorHandle(m_srvCbvHeap->GetGPUDescriptorHandleForHeapStart(), Descriptors::GUI, m_srvCbvHeapSize);
+        UINT rootParameterIndex = RootParameterIndices::SRV;
+        m_gui = std::make_unique<Texture>(cpuDescriptorHandle, gpuDescriptorHandle, rootParameterIndex);
+        m_gui->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Grass.dds");
+    }*/
     // Create the sceneObject
     m_object1 = std::make_unique<SceneObject>(m_cube, m_tiles, m_constantBuffer1);
     m_object1->Initialize(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get());
