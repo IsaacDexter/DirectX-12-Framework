@@ -1,15 +1,15 @@
 #pragma once
 #include "stdafx.h"
+#include "Resource.h"
 
-class ConstantBuffer
+class ConstantBuffer : public Resource
 {
 public:
 	ConstantBuffer(const D3D12_CPU_DESCRIPTOR_HANDLE& cbvCpuDescriptorHandle, const D3D12_GPU_DESCRIPTOR_HANDLE& cbvGpuDescriptorHandle, const UINT& cbvRootParameterIndex);
 	void Initialize(ID3D12Device* device);
 	// Update Model View Projection (MVP) Matrix according to camera position
 	void Update(DirectX::XMMATRIX model, DirectX::XMMATRIX view, DirectX::XMMATRIX projection);
-	void Set(ID3D12GraphicsCommandList* commandList);
-private:
+protected:
 	// Constant buffer used to translate the triangle in the shaders
 	struct SceneConstantBuffer
 	{
@@ -21,12 +21,6 @@ private:
 	// Ensure constant buffer is 256-byte aligned
 	static_assert((sizeof(SceneConstantBuffer) % 256) == 0, "Constant Buffer size must be 256-byte aligned");
 
-	const D3D12_CPU_DESCRIPTOR_HANDLE m_cpuDescriptorHandle;
-	const D3D12_GPU_DESCRIPTOR_HANDLE m_gpuDescriptorHandle;
-	const UINT m_rootParameterIndex;
-
-	// Constant buffer
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_constantBuffer;
 	SceneConstantBuffer m_constantBufferData;
 	UINT8* m_pCbvDataBegin;
 };

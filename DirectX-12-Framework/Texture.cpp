@@ -3,10 +3,8 @@
 #include "DirectXHelpers.h"
 using namespace DirectX;
 
-Texture::Texture(const D3D12_CPU_DESCRIPTOR_HANDLE& cpuDescriptorHandle, const D3D12_GPU_DESCRIPTOR_HANDLE& gpuDescriptorHandle, const UINT& srvRootParameterIndex) :
-    m_cpuDescriptorHandle(cpuDescriptorHandle),
-    m_gpuDescriptorHandle(gpuDescriptorHandle),
-    m_rootParameterIndex(srvRootParameterIndex)
+Texture::Texture(const D3D12_CPU_DESCRIPTOR_HANDLE& srvCpuDescriptorHandle, const D3D12_GPU_DESCRIPTOR_HANDLE& srvGpuDescriptorHandle, const UINT& srvRootParameterIndex) :
+    Resource(srvCpuDescriptorHandle, srvGpuDescriptorHandle, srvRootParameterIndex)
 {
 }
 
@@ -15,10 +13,10 @@ void Texture::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* comman
     std::unique_ptr<uint8_t[]> ddsData;
     std::vector<D3D12_SUBRESOURCE_DATA> subresources;
     ThrowIfFailed(
-        LoadDDSTextureFromFile(device, path, &m_texture,
+        LoadDDSTextureFromFile(device, path, &m_resource,
             ddsData, subresources), "Coudln't load texture.\n ");
 
-    const UINT64 uploadBufferSize = GetRequiredIntermediateSize(m_texture.Get(), 0,
+    const UINT64 uploadBufferSize = GetRequiredIntermediateSize(m_resource.Get(), 0,
         static_cast<UINT>(subresources.size()));
 
     // Create the GPU upload buffer.
@@ -36,17 +34,12 @@ void Texture::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* comman
         IID_PPV_ARGS(&m_uploadRes)
     ), "Couldn't Create texture.\n");
 
-    UpdateSubresources(commandList, m_texture.Get(), m_uploadRes.Get(),
+    UpdateSubresources(commandList, m_resource.Get(), m_uploadRes.Get(),
         0, 0, static_cast<UINT>(subresources.size()), subresources.data());
 
-    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_texture.Get(),
+    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_resource.Get(),
         D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     commandList->ResourceBarrier(1, &barrier);
 
-    CreateShaderResourceView(device, m_texture.Get(), m_cpuDescriptorHandle);
-}
-
-void Texture::Set(ID3D12GraphicsCommandList* commandList)
-{
-    commandList->SetGraphicsRootDescriptorTable(m_rootParameterIndex, m_gpuDescriptorHandle);
+    CreateShaderResourceView(device, m_resource.Get(), m_cpuDescriptorHandle);
 }

@@ -1082,7 +1082,6 @@ void Application::PopulateCommandList()
     m_commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
     // Describe how the SRVs are laid out
-    m_commandList->SetGraphicsRootDescriptorTable(RootParameterIndices::SRV, m_tiles->GetGpuDescriptorHandle());
 
     // Describe how samplers are laid out to GPU
     m_commandList->SetGraphicsRootDescriptorTable(RootParameterIndices::Sampler, m_samplerHeap->GetGPUDescriptorHandleForHeapStart());
