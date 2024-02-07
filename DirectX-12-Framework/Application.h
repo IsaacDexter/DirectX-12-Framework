@@ -12,6 +12,7 @@
 #include "Controls.h"
 #include "SceneObject.h"
 #include "Model.h"
+#include "Texture.h"
 
 class Window;
 
@@ -91,8 +92,7 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvCbvHeap;
 	// How much to offset the shared SRV/SBV heap by to get the next available handle
 	UINT m_srvCbvHeapSize;
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_tiles;
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_grass;
+	std::unique_ptr<Texture> m_tiles;
 
 	// Constant buffer
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_constantBuffer ;
@@ -103,7 +103,6 @@ private:
 	{
 		CBV = 0,
 		Tiles,
-		Grass,
 		GUI
 	};
 
@@ -211,15 +210,8 @@ private:
 
 	void UpdateDepthStencilView(Microsoft::WRL::ComPtr<ID3D12Resource> &dsv, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& dsvHeap);
 
-	/** 
-	* Loads and creates a given texture into a resource.
-	* @param uploadRes, ComPtr to an upload resource, that needs to stay in scope past the method. Ensure the GPU is flushed so it doesn't leave scope prematurely.
-	* @param path, literal to the texture files location
-	* @param descriptor UINT identifier to the texture
-	* @ returns the newly created texture resource
-	*/
-	Microsoft::WRL::ComPtr<ID3D12Resource> CreateTexture(ID3D12Resource* uploadRes, const wchar_t* path, Descriptors descriptor);
-
+	
+	
 	void CreateSampler();
 
 	/** 

@@ -1,6 +1,5 @@
 #include "Application.h"
 #include "Window.h"
-#include "DirectXHelpers.h"
 
 using namespace Microsoft::WRL;
 using namespace DirectX;
@@ -597,67 +596,6 @@ void Application::UpdateRenderTargetViews(Microsoft::WRL::ComPtr<ID3D12Device4> 
     }
 }
 
-
-void Application::UpdateBufferResource(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource, size_t numElements, const void* bufferData, D3D12_RESOURCE_FLAGS flags)
-{
-    // size of the buffer in bytes
-    const UINT64 bufferSize = GetRequiredIntermediateSize(m_tiles.Get(), 0, numElements);
-
-
-    // Create CPU resource in committed memory large enough to store the buffer
-    // Create resource and implicit heap large enough to store it, mapping the resource to the heap
-
-    // create heap properties structure that provides properties for the destination resource's heap
-    auto destHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-    // pointer to resource desc that describes the destinationresource
-    auto destResourceDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize, flags);
-
-    ThrowIfFailed(m_device->CreateCommittedResource(
-        &destHeapProperties,
-        D3D12_HEAP_FLAG_NONE,   // heap option flags
-        &destResourceDesc,
-        D3D12_RESOURCE_STATE_COPY_DEST, // state of the resource
-        nullptr,    // describes default value for a clear colour
-        IID_PPV_ARGS(pDestinationResource)  // globally unique identifier for resource interface
-    ));
-
-    // create resource used to transfer CPU buffer data into GPU memory
-    // create intermediate buffer resource using upload heap
-    // so long as bufferData isn't NULL
-    if (bufferData)
-    {
-        // heap properties structure that provides properties for the intermediate resource's heap
-        auto interHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-        // pointer to resource desc that describes the intermediate resource
-        auto interResourceDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize);
-        ThrowIfFailed(m_device->CreateCommittedResource(
-            &interHeapProperties,
-            D3D12_HEAP_FLAG_NONE,   // heap option flags
-            &interResourceDesc,
-            D3D12_RESOURCE_STATE_GENERIC_READ, // state of the resource
-            nullptr,    // describes default value for a clear colour
-            IID_PPV_ARGS(pIntermediateResource)  // globally unique identifier for resource interface
-        ));
-
-        // transfer CPU buffer data to GPU resources
-        // describe subresource data to be uploaded to GPU resource
-        D3D12_SUBRESOURCE_DATA subresourceData = {};
-        subresourceData.pData = bufferData; // pointer to memory block containing subresource data
-        subresourceData.RowPitch = bufferSize;  // row width in bytes of the subresource data
-        subresourceData.SlicePitch = subresourceData.RowPitch;  // depth width in bytes of the subresource data
-        // Upload CPU buffer data to GPU resource in a default heap using an intermediate buffer
-        UpdateSubresources(
-            commandList.Get(),  // pointer for the command list interface to upload with
-            *pDestinationResource,  // destination resource
-            *pIntermediateResource, // intermediate resource
-            0,  // offset in bytes to intermediate resource
-            0,  // index of first subresource in the resource, always 0 for buffer resources
-            1,  // NumSubresources number of subresources  in the resource to be updated, always 1 for buffer resources
-            &subresourceData    // pointer to array of length NumSubresources of pointers to descriptions of subresource data used for the update
-        );
-    }
-}
-
 bool Application::CheckTearingSupport()
 {
 
@@ -691,8 +629,8 @@ void Application::InitializeAssets()
     - Compile shaders
     - Create vertex input layout
     - Create *pipeline state object*
-	    - Create description
-	    - Create object
+        - Create description
+        - Create object
     - Create command list
     - Close command list
     - Create and load vertex buffers
@@ -700,7 +638,7 @@ void Application::InitializeAssets()
     - Create *fence*
     - Create event handle
     - Wait for GPU to finish
-	- Wait on fence
+    - Wait on fence
     */
 
     // Create empty root signature
@@ -727,7 +665,7 @@ void Application::InitializeAssets()
         IID_PPV_ARGS(&m_commandList)
     ), "Failed to create command list.\n");
 
-    
+
     m_cube = Model();
     m_cube.Initialize(m_device.Get(), m_commandList.Get());
 
@@ -740,14 +678,15 @@ void Application::InitializeAssets()
 
 
     // Create the texture
-    // Note: ComPtr's are CPU objects but this resource needs to stay in scope until
-    // the command list that references it has finished executing on the GPU.
-    // We will flush the GPU at the end of this method to ensure the resource is not
-    // prematurely destroyed.
-    ComPtr<ID3D12Resource> uploadRes;
-    m_tiles = CreateTexture(uploadRes.Get(), L"Assets/Tiles.dds", Descriptors::Tiles);
-    ComPtr<ID3D12Resource> uploadRes2;
-    m_grass = CreateTexture(uploadRes2.Get(), L"Assets/Grass.dds", Descriptors::Grass);
+
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart());
+    CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorHandle(m_srvCbvHeap->GetGPUDescriptorHandleForHeapStart());
+    cpuDescriptorHandle.Offset(Descriptors::Tiles * m_srvCbvHeapSize);
+    gpuDescriptorHandle.Offset(Descriptors::Tiles * m_srvCbvHeapSize);
+    m_tiles = std::make_unique<Texture>(cpuDescriptorHandle, gpuDescriptorHandle);
+    m_tiles->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Tiles.dds");
+
 
     CreateSampler();
 
@@ -920,52 +859,6 @@ void Application::CreateConstantBuffer()
     CD3DX12_RANGE readRange(0, 0);  // Range of reading resource on the CPU, which we needn't do
     ThrowIfFailed(m_constantBuffer->Map(0, &readRange, reinterpret_cast<void**>(&m_pCbvDataBegin)), "Failed to map constant buffer.\n");
     memcpy(m_pCbvDataBegin, &m_constantBufferData, sizeof(m_constantBufferData));   // map constant buffer data into the pointer to the beginning
-}
-
-Microsoft::WRL::ComPtr<ID3D12Resource> Application::CreateTexture(ID3D12Resource* uploadRes, const wchar_t* path, Descriptors descriptor)
-{
-    Microsoft::WRL::ComPtr<ID3D12Resource> texture;
-
-
-    std::unique_ptr<uint8_t[]> ddsData;
-    std::vector<D3D12_SUBRESOURCE_DATA> subresources;
-    ThrowIfFailed(
-        LoadDDSTextureFromFile(m_device.Get(), path, texture.ReleaseAndGetAddressOf(),
-            ddsData, subresources), "Coudln't load texture.\n ");
-
-    const UINT64 uploadBufferSize = GetRequiredIntermediateSize(texture.Get(), 0,
-        static_cast<UINT>(subresources.size()));
-
-    // Create the GPU upload buffer.
-
-    CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
-
-    auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
-
-    ThrowIfFailed(m_device->CreateCommittedResource(
-        &heapProps,
-        D3D12_HEAP_FLAG_NONE,
-        &bufferDesc,
-        D3D12_RESOURCE_STATE_GENERIC_READ,
-        nullptr,
-        IID_PPV_ARGS(&uploadRes)
-    ),"Couldn't Create texture.\n");
-
-
-    UpdateSubresources(m_commandList.Get(), texture.Get(), uploadRes,
-        0, 0, static_cast<UINT>(subresources.size()), subresources.data());
-
-    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(texture.Get(),
-        D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-    m_commandList->ResourceBarrier(1, &barrier);
-
-    
-
-    CD3DX12_CPU_DESCRIPTOR_HANDLE srvHeapHandle(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart());
-    srvHeapHandle.Offset(m_srvCbvHeapSize * descriptor);
-    CreateShaderResourceView(m_device.Get(), texture.Get(), srvHeapHandle);
-
-    return texture;
 }
 
 void Application::UpdateDepthStencilView(Microsoft::WRL::ComPtr<ID3D12Resource>& dsv, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& dsvHeap)
@@ -1225,9 +1118,7 @@ void Application::PopulateCommandList()
     m_commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
     // Describe how the SRVs are laid out
-    CD3DX12_GPU_DESCRIPTOR_HANDLE srvHeapHandleGPU(m_srvCbvHeap->GetGPUDescriptorHandleForHeapStart());
-    srvHeapHandleGPU.Offset(m_srvCbvHeapSize * Descriptors::Tiles);
-    m_commandList->SetGraphicsRootDescriptorTable(0, srvHeapHandleGPU);
+    m_commandList->SetGraphicsRootDescriptorTable(0, m_tiles->GetGpuDescriptorHandle());
 
     // Access Constant Buffer in Vertex shader
     CD3DX12_GPU_DESCRIPTOR_HANDLE cbvHeapHandleGPU(m_srvCbvHeap->GetGPUDescriptorHandleForHeapStart());
