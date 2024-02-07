@@ -19,10 +19,6 @@ Application::Application(HINSTANCE hInstance) :
     m_viewport = { 0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height) };
     m_scissorRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
     m_rtvDescriptorSize = 0;
-    
-
-    m_pCbvDataBegin = nullptr;
-    m_constantBufferData = {};
 }
 
 void Application::Initialize()
@@ -78,22 +74,11 @@ void Application::Update()
     m_camera->Update(deltaTime);
 
 
-    // Update Model View Projection (MVP) Matrix according to camera position
-    {
-
-        m_object->SetPosition(1.0f, 1.0f, 0.0f);
-        XMMATRIX model = m_object->GetModel();
-        XMMATRIX view = m_camera->GetView();
-        XMMATRIX projection = m_camera->GetProj();
-
-        XMFLOAT4X4 mvp;
-        XMStoreFloat4x4(&mvp, XMMatrixTranspose(model * view * projection));
-
-        m_constantBufferData.mvp = mvp;
-
-        // Update the constant buffer pointer with new data
-        memcpy(m_pCbvDataBegin, &m_constantBufferData, sizeof(m_constantBufferData));
-    }
+    // Update constant buffer
+    XMMATRIX model = m_object->GetModel();
+    XMMATRIX view = m_camera->GetView();
+    XMMATRIX projection = m_camera->GetProj();
+    m_constantBuffer1->Update(model, view, projection);
 
 
     UpdateGUI();
@@ -666,27 +651,45 @@ void Application::InitializeAssets()
     ), "Failed to create command list.\n");
 
 
-    m_cube = Model();
-    m_cube.Initialize(m_device.Get(), m_commandList.Get());
 
-    m_object = std::make_unique<SceneObject>(m_cube);
-    m_object->Initialize(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get());
 
 
     // Create the constant buffer
-    CreateConstantBuffer();
+    {
+        CD3DX12_CPU_DESCRIPTOR_HANDLE cbvCpuDescriptorHandle(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart(), Descriptors::Object1, m_srvCbvHeapSize);
+        CD3DX12_GPU_DESCRIPTOR_HANDLE cbvGpuDescriptorHandle(m_srvCbvHeap->GetGPUDescriptorHandleForHeapStart(), Descriptors::Object1, m_srvCbvHeapSize);
+        UINT cbvRootParameterIndex = RootParameterIndices::CBV;
+        m_constantBuffer1 = std::make_unique<ConstantBuffer>(cbvCpuDescriptorHandle, cbvGpuDescriptorHandle, cbvRootParameterIndex);
+        m_constantBuffer1->Initialize(m_device.Get());
+    }
 
+    // Create the model
+    m_cube = std::make_shared<Model>();
+    m_cube->Initialize(m_device.Get(), m_commandList.Get());
 
     // Create the texture
+    {
+        CD3DX12_CPU_DESCRIPTOR_HANDLE srvCpuDescriptorHandle(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart(), Descriptors::Tiles, m_srvCbvHeapSize);
+        CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuDescriptorHandle(m_srvCbvHeap->GetGPUDescriptorHandleForHeapStart(), Descriptors::Tiles, m_srvCbvHeapSize);
+        UINT srvRootParameterIndex = RootParameterIndices::SRV;
+        m_tiles = std::make_unique<Texture>(srvCpuDescriptorHandle, srvGpuDescriptorHandle, srvRootParameterIndex);
+        m_tiles->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Tiles.dds");
+    }
+    {
+        CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart(), Descriptors::Grass, m_srvCbvHeapSize);
+        CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorHandle(m_srvCbvHeap->GetGPUDescriptorHandleForHeapStart(), Descriptors::Grass, m_srvCbvHeapSize);
+        UINT rootParameterIndex = RootParameterIndices::SRV;
+        m_grass = std::make_unique<Texture>(cpuDescriptorHandle, gpuDescriptorHandle, rootParameterIndex);
+        m_grass->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Grass.dds");
+    }
+    // Create the sceneObject
+    m_object = std::make_unique<SceneObject>(m_cube, m_tiles);
+    m_object->Initialize(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get());
+    m_object->SetPosition(1.0f, 1.0f, 0.0f);
 
-
-    CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart());
-    CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorHandle(m_srvCbvHeap->GetGPUDescriptorHandleForHeapStart());
-    cpuDescriptorHandle.Offset(Descriptors::Tiles * m_srvCbvHeapSize);
-    gpuDescriptorHandle.Offset(Descriptors::Tiles * m_srvCbvHeapSize);
-    m_tiles = std::make_unique<Texture>(cpuDescriptorHandle, gpuDescriptorHandle);
-    m_tiles->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Tiles.dds");
-
+    m_object2 = std::make_unique<SceneObject>(m_cube, m_grass);
+    m_object2->Initialize(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get());
+    m_object->SetPosition(1.0f, -1.0f, 0.0f);
 
     CreateSampler();
 
@@ -820,45 +823,6 @@ void Application::CreateSyncObjects()
     // complete before continuing.
     WaitForGpu();
 
-}
-
-void Application::CreateConstantBuffer()
-{
-    const UINT constantBufferSize = sizeof(SceneConstantBuffer);
-    // get the size of the constant buffer, which is already asserted to be 256-byte aligned
-    {
-        // Create upload heap to transfer constant buffer data to GPU
-        auto heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-        auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(constantBufferSize);
-
-        // Create the constant buffer in its own implicit heap
-        ThrowIfFailed(m_device->CreateCommittedResource(
-            &heapProps,  // The properties of the implicit heap
-            D3D12_HEAP_FLAG_NONE,
-            &bufferDesc,    // Descriptor for the resource
-            D3D12_RESOURCE_STATE_GENERIC_READ,  // Required heap state for an upload heap
-            nullptr,    // Optimized clear value for render target resources
-            IID_PPV_ARGS(&m_constantBuffer)   // GUID of vertex buffer interface
-        ), "Failed to create constant buffer.\n");
-    }
-
-    // Describe and create constant buffer view
-    D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
-    cbvDesc.BufferLocation = m_constantBuffer->GetGPUVirtualAddress();  //GPU virtual address of constant buffer
-    cbvDesc.SizeInBytes = constantBufferSize;   // Size of constant buffer
-    // Create the constant buffer view, i.e. formatted constant buffer data and bind it to the CBV heap
-
-    // Get a handle to the start of the shared SRV & CBV heap, which represents the free point in the heap. This will be incremented to add SRVs after CBVs to the heap.
-    CD3DX12_CPU_DESCRIPTOR_HANDLE cbvHeapHandle(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart());
-    cbvHeapHandle.Offset(Descriptors::CBV);
-    m_device->CreateConstantBufferView(&cbvDesc, cbvHeapHandle);
-
-
-    // Map the constant buffer and initialize it
-    // This can be mapped for the lifteime of the resource, isnt unmapped until app closes
-    CD3DX12_RANGE readRange(0, 0);  // Range of reading resource on the CPU, which we needn't do
-    ThrowIfFailed(m_constantBuffer->Map(0, &readRange, reinterpret_cast<void**>(&m_pCbvDataBegin)), "Failed to map constant buffer.\n");
-    memcpy(m_pCbvDataBegin, &m_constantBufferData, sizeof(m_constantBufferData));   // map constant buffer data into the pointer to the beginning
 }
 
 void Application::UpdateDepthStencilView(Microsoft::WRL::ComPtr<ID3D12Resource>& dsv, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& dsvHeap)
@@ -1118,15 +1082,10 @@ void Application::PopulateCommandList()
     m_commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
     // Describe how the SRVs are laid out
-    m_commandList->SetGraphicsRootDescriptorTable(0, m_tiles->GetGpuDescriptorHandle());
-
-    // Access Constant Buffer in Vertex shader
-    CD3DX12_GPU_DESCRIPTOR_HANDLE cbvHeapHandleGPU(m_srvCbvHeap->GetGPUDescriptorHandleForHeapStart());
-    cbvHeapHandleGPU.Offset(m_srvCbvHeapSize * Descriptors::CBV);
-    m_commandList->SetGraphicsRootDescriptorTable(1, cbvHeapHandleGPU);
+    m_commandList->SetGraphicsRootDescriptorTable(RootParameterIndices::SRV, m_tiles->GetGpuDescriptorHandle());
 
     // Describe how samplers are laid out to GPU
-    m_commandList->SetGraphicsRootDescriptorTable(2, m_samplerHeap->GetGPUDescriptorHandleForHeapStart());
+    m_commandList->SetGraphicsRootDescriptorTable(RootParameterIndices::Sampler, m_samplerHeap->GetGPUDescriptorHandleForHeapStart());
 
     m_commandList->RSSetViewports(1, &m_viewport);
     m_commandList->RSSetScissorRects(1, &m_scissorRect);
@@ -1151,8 +1110,19 @@ void Application::PopulateCommandList()
         0,  // Value to clear the stencil view
         0, nullptr  // Clear the whole view. Set these to only clear specific rects.
     );
-
-    m_commandList->ExecuteBundle(m_object->GetBundle());
+    // Update Model View Projection (MVP) Matrix according to camera position
+    
+    // Access Constant Buffer in Vertex shader
+    {
+        m_constantBuffer1->Set(m_commandList.Get());
+        m_object->Draw(m_commandList.Get());
+    }
+    //{
+    //    // Access Constant Buffer in Vertex shader
+    //    CD3DX12_GPU_DESCRIPTOR_HANDLE cbvHeapHandleGPU(m_srvCbvHeap->GetGPUDescriptorHandleForHeapStart(), Descriptors::Object2, m_srvCbvHeapSize);
+    //    m_commandList->SetGraphicsRootDescriptorTable(RootParameterIndices::CBV, cbvHeapHandleGPU);
+    //    m_object2->Draw(m_commandList.Get());
+    //}
 
 
     RenderGUI(m_commandList.Get());

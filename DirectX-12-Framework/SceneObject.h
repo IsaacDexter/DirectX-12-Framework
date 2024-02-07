@@ -2,13 +2,15 @@
 #include "stdafx.h"
 
 class Model;
+class Texture;
 
 class SceneObject
 {
 public:
-	SceneObject(Model& model);
+	SceneObject(std::shared_ptr<Model> model, std::shared_ptr<Texture> texture);
 	virtual void Initialize(ID3D12Device* device, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature);
 	virtual void Update(const float& deltaTime) {};
+	void Draw(ID3D12GraphicsCommandList* commandList);
 
 	ID3D12GraphicsCommandList* GetBundle()
 	{
@@ -48,6 +50,7 @@ protected:
 
 	DirectX::XMFLOAT3 m_position;
 
-	Model& m_model;
+	std::shared_ptr<Model> m_model;
+	std::shared_ptr<Texture> m_texture;
 };
 

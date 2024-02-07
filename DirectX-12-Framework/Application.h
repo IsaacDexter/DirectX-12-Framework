@@ -13,6 +13,7 @@
 #include "SceneObject.h"
 #include "Model.h"
 #include "Texture.h"
+#include "ConstantBuffer.h"
 
 class Window;
 
@@ -47,19 +48,6 @@ public:
 private:
 	static const UINT m_frameCount = 2;
 
-	// Constant buffer used to translate the triangle in the shaders
-	struct SceneConstantBuffer
-	{
-		// Constant buffer must be 256-Byte aligned 
-		// Model View Projection matrix
-		DirectX::XMFLOAT4X4 mvp;	//4 * 4 = 16 Bytes
-		float padding[48];	//60 * 4 =	240 Bytes
-	};
-	// Ensure constant buffer is 256-byte aligned
-	static_assert((sizeof(SceneConstantBuffer) % 256) == 0, "Constant Buffer size must be 256-byte aligned");
-
-
-
 #pragma region Pipeline
 
 	D3D12_VIEWPORT m_viewport;
@@ -92,18 +80,21 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvCbvHeap;
 	// How much to offset the shared SRV/SBV heap by to get the next available handle
 	UINT m_srvCbvHeapSize;
-	std::unique_ptr<Texture> m_tiles;
 
-	// Constant buffer
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_constantBuffer ;
-	SceneConstantBuffer m_constantBufferData;
-	UINT8* m_pCbvDataBegin;
+	
 
 	enum Descriptors
 	{
-		CBV = 0,
+		Object1 = 0,
 		Tiles,
+		Grass,
 		GUI
+	};
+	enum RootParameterIndices
+	{
+		SRV = 0,
+		CBV,
+		Sampler
 	};
 
 #pragma endregion
@@ -120,7 +111,11 @@ private:
 	std::shared_ptr<Window> m_window;
 	std::unique_ptr<Camera> m_camera;
 	std::unique_ptr<SceneObject> m_object;
-	Model m_cube;
+	std::unique_ptr<ConstantBuffer> m_constantBuffer1;
+	std::unique_ptr<SceneObject> m_object2;
+	std::shared_ptr<Model> m_cube;
+	std::shared_ptr<Texture> m_tiles;
+	std::shared_ptr<Texture> m_grass;
 
 private:
 #pragma region Initialization
@@ -205,8 +200,6 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> CreateRootSignature();
 
 	void CreateSyncObjects();
-
-	void CreateConstantBuffer();
 
 	void UpdateDepthStencilView(Microsoft::WRL::ComPtr<ID3D12Resource> &dsv, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& dsvHeap);
 

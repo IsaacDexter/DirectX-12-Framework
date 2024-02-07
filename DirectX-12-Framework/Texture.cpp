@@ -3,9 +3,10 @@
 #include "DirectXHelpers.h"
 using namespace DirectX;
 
-Texture::Texture(D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle, D3D12_GPU_DESCRIPTOR_HANDLE gpuDescriptorHandle) :
+Texture::Texture(const D3D12_CPU_DESCRIPTOR_HANDLE& cpuDescriptorHandle, const D3D12_GPU_DESCRIPTOR_HANDLE& gpuDescriptorHandle, const UINT& srvRootParameterIndex) :
     m_cpuDescriptorHandle(cpuDescriptorHandle),
-    m_gpuDescriptorHandle(gpuDescriptorHandle)
+    m_gpuDescriptorHandle(gpuDescriptorHandle),
+    m_rootParameterIndex(srvRootParameterIndex)
 {
 }
 
@@ -43,4 +44,9 @@ void Texture::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* comman
     commandList->ResourceBarrier(1, &barrier);
 
     CreateShaderResourceView(device, m_texture.Get(), m_cpuDescriptorHandle);
+}
+
+void Texture::Set(ID3D12GraphicsCommandList* commandList)
+{
+    commandList->SetGraphicsRootDescriptorTable(m_rootParameterIndex, m_gpuDescriptorHandle);
 }
