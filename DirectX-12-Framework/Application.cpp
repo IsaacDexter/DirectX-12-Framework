@@ -82,8 +82,8 @@ void Application::Update()
     // Update Model View Projection (MVP) Matrix according to camera position
     {
 
-        m_cube->SetPosition(3.0f, 3.0f, 0.0f);
-        XMMATRIX model = m_cube->GetWorld();
+        m_object->SetPosition(1.0f, 1.0f, 0.0f);
+        XMMATRIX model = m_object->GetModel();
         XMMATRIX view = m_camera->GetView();
         XMMATRIX projection = m_camera->GetProj();
 
@@ -728,9 +728,11 @@ void Application::InitializeAssets()
     ), "Failed to create command list.\n");
 
     
+    m_cube = Model();
+    m_cube.Initialize(m_device.Get(), m_commandList.Get());
 
-    m_cube = std::make_unique<SceneObject>();
-    m_cube->Initialize(m_device.Get(), m_pipelineState.Get(), m_commandList.Get(), m_rootSignature.Get());
+    m_object = std::make_unique<SceneObject>(m_cube);
+    m_object->Initialize(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get());
 
 
     // Create the constant buffer
@@ -1259,7 +1261,7 @@ void Application::PopulateCommandList()
         0, nullptr  // Clear the whole view. Set these to only clear specific rects.
     );
 
-    m_commandList->ExecuteBundle(m_cube->GetBundle());
+    m_commandList->ExecuteBundle(m_object->GetBundle());
 
 
     RenderGUI(m_commandList.Get());

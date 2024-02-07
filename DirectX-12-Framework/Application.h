@@ -11,6 +11,7 @@
 #include "Camera.h"
 #include "Controls.h"
 #include "SceneObject.h"
+#include "Model.h"
 
 class Window;
 
@@ -119,7 +120,8 @@ private:
 
 	std::shared_ptr<Window> m_window;
 	std::unique_ptr<Camera> m_camera;
-	std::unique_ptr<SceneObject> m_cube;
+	std::unique_ptr<SceneObject> m_object;
+	Model m_cube;
 
 private:
 #pragma region Initialization
