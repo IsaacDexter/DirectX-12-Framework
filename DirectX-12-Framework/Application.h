@@ -10,6 +10,7 @@
 
 #include "Camera.h"
 #include "Controls.h"
+#include "SceneObject.h"
 
 class Window;
 
@@ -44,12 +45,6 @@ public:
 private:
 	static const UINT m_frameCount = 2;
 
-	struct Vertex
-	{
-		DirectX::XMFLOAT3 position;
-		DirectX::XMFLOAT2 uv;
-	};
-
 	// Constant buffer used to translate the triangle in the shaders
 	struct SceneConstantBuffer
 	{
@@ -76,9 +71,6 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pipelineState;
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_commandList;
-	
-	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> m_bundleAllocator;
-	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_bundle;
 
 
 	UINT m_rtvDescriptorSize;
@@ -92,13 +84,6 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_dsv;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_samplerHeap;
-
-	// Vertex & Index buffer
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_vertexBuffer;
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_indexBuffer;
-	D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;
-	D3D12_INDEX_BUFFER_VIEW m_indexBufferView;
-	UINT m_numIndices;
 
 	// Texture
 	// Shader resource view heap for accessing data in a resource (texture)
@@ -134,6 +119,7 @@ private:
 
 	std::shared_ptr<Window> m_window;
 	std::unique_ptr<Camera> m_camera;
+	std::unique_ptr<SceneObject> m_cube;
 
 private:
 #pragma region Initialization
