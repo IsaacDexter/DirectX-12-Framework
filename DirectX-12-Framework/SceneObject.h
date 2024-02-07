@@ -12,6 +12,28 @@ public:
 	{
 		return m_bundle.Get();
 	}
+
+	const DirectX::XMFLOAT3& GetPosition() const
+	{
+		return m_position;
+	}
+
+	void SetPosition(const DirectX::XMFLOAT3& position)
+	{
+		m_position = position;
+	}
+
+	void SetPosition(const float& x, const float& y, const float& z)
+	{
+		m_position.x = x;
+		m_position.y = y;
+		m_position.z = z;
+	}
+
+	const DirectX::XMMATRIX& GetWorld() const
+	{
+		return DirectX::XMMatrixTranslation(m_position.x, m_position.y, m_position.z);
+	}
 protected:
 	struct Vertex
 	{

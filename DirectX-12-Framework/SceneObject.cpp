@@ -2,7 +2,11 @@
 using namespace DirectX;
 using namespace Microsoft::WRL;
 
-SceneObject::SceneObject()
+SceneObject::SceneObject() :
+    m_position(0.0f, 0.0f, 0.0f),
+    m_numIndices(0),
+    m_indexBufferView(),
+    m_vertexBufferView()
 {
 }
 

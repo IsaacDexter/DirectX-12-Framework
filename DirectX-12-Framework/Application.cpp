@@ -82,8 +82,8 @@ void Application::Update()
     // Update Model View Projection (MVP) Matrix according to camera position
     {
 
-
-        XMMATRIX model = XMMatrixIdentity();
+        m_cube->SetPosition(3.0f, 3.0f, 0.0f);
+        XMMATRIX model = m_cube->GetWorld();
         XMMATRIX view = m_camera->GetView();
         XMMATRIX projection = m_camera->GetProj();
 
