@@ -8,7 +8,7 @@ public:
 	ConstantBuffer(const D3D12_CPU_DESCRIPTOR_HANDLE& cbvCpuDescriptorHandle, const D3D12_GPU_DESCRIPTOR_HANDLE& cbvGpuDescriptorHandle, const UINT& cbvRootParameterIndex);
 	void Initialize(ID3D12Device* device);
 	// Update Model View Projection (MVP) Matrix according to camera position
-	void Update(DirectX::XMMATRIX model, DirectX::XMMATRIX view, DirectX::XMMATRIX projection);
+	void Update(const DirectX::XMMATRIX& model, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);
 protected:
 	// Constant buffer used to translate the triangle in the shaders
 	struct SceneConstantBuffer

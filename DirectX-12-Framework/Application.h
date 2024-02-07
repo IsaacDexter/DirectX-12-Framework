@@ -111,7 +111,7 @@ private:
 	std::shared_ptr<Window> m_window;
 	std::unique_ptr<Camera> m_camera;
 	std::unique_ptr<SceneObject> m_object;
-	std::unique_ptr<ConstantBuffer> m_constantBuffer1;
+	std::shared_ptr<ConstantBuffer> m_constantBuffer1;
 	std::unique_ptr<SceneObject> m_object2;
 	std::shared_ptr<Model> m_cube;
 	std::shared_ptr<Texture> m_tiles;

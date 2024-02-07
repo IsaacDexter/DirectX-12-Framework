@@ -73,12 +73,10 @@ void Application::Update()
     // Update the camera based on input previously passed to it.
     m_camera->Update(deltaTime);
 
-
     // Update constant buffer
-    XMMATRIX model = m_object->GetModel();
     XMMATRIX view = m_camera->GetView();
     XMMATRIX projection = m_camera->GetProj();
-    m_constantBuffer1->Update(model, view, projection);
+    m_object->Update(deltaTime, view, projection);
 
 
     UpdateGUI();
@@ -683,11 +681,11 @@ void Application::InitializeAssets()
         m_grass->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Grass.dds");
     }
     // Create the sceneObject
-    m_object = std::make_unique<SceneObject>(m_cube, m_tiles);
+    m_object = std::make_unique<SceneObject>(m_cube, m_tiles, m_constantBuffer1);
     m_object->Initialize(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get());
     m_object->SetPosition(1.0f, 1.0f, 0.0f);
 
-    m_object2 = std::make_unique<SceneObject>(m_cube, m_grass);
+    m_object2 = std::make_unique<SceneObject>(m_cube, m_grass, m_constantBuffer1);
     m_object2->Initialize(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get());
     m_object->SetPosition(1.0f, -1.0f, 0.0f);
 
@@ -1081,8 +1079,6 @@ void Application::PopulateCommandList()
     ID3D12DescriptorHeap* ppHeaps[] = { m_srvCbvHeap.Get(), m_samplerHeap.Get()};
     m_commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
-    // Describe how the SRVs are laid out
-
     // Describe how samplers are laid out to GPU
     m_commandList->SetGraphicsRootDescriptorTable(RootParameterIndices::Sampler, m_samplerHeap->GetGPUDescriptorHandleForHeapStart());
 
@@ -1113,7 +1109,6 @@ void Application::PopulateCommandList()
     
     // Access Constant Buffer in Vertex shader
     {
-        m_constantBuffer1->Set(m_commandList.Get());
         m_object->Draw(m_commandList.Get());
     }
     //{

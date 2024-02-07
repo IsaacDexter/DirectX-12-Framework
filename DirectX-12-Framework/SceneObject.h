@@ -3,13 +3,14 @@
 
 class Model;
 class Texture;
+class ConstantBuffer;
 
 class SceneObject
 {
 public:
-	SceneObject(std::shared_ptr<Model> model, std::shared_ptr<Texture> texture);
+	SceneObject(std::shared_ptr<Model> model, std::shared_ptr<Texture> texture, std::shared_ptr<ConstantBuffer> constantBuffer);
 	virtual void Initialize(ID3D12Device* device, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature);
-	virtual void Update(const float& deltaTime) {};
+	virtual void Update(const float& deltaTime, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);
 	void Draw(ID3D12GraphicsCommandList* commandList);
 
 	ID3D12GraphicsCommandList* GetBundle()
@@ -52,5 +53,7 @@ protected:
 
 	std::shared_ptr<Model> m_model;
 	std::shared_ptr<Texture> m_texture;
+	std::shared_ptr<ConstantBuffer> m_constantBuffer;
+
 };
 

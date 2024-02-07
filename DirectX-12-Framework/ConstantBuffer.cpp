@@ -49,7 +49,7 @@ void ConstantBuffer::Initialize(ID3D12Device* device)
 
 }
 
-void ConstantBuffer::Update(DirectX::XMMATRIX model, DirectX::XMMATRIX view, DirectX::XMMATRIX projection)
+void ConstantBuffer::Update(const DirectX::XMMATRIX& model, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection)
 {
     XMFLOAT4X4 mvp;
     XMStoreFloat4x4(&mvp, XMMatrixTranspose(model * view * projection));
