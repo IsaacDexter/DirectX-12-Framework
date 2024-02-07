@@ -85,16 +85,17 @@ private:
 
 	enum Descriptors
 	{
-		Object1 = 0,
 		Tiles,
 		Grass,
-		GUI
+		Object1,
+		Object2,
+		GUI,
 	};
 	enum RootParameterIndices
 	{
-		SRV = 0,
+		SRV,
 		CBV,
-		Sampler
+		Sampler,
 	};
 
 #pragma endregion
@@ -109,10 +110,12 @@ private:
 #pragma endregion
 
 	std::shared_ptr<Window> m_window;
+
 	std::unique_ptr<Camera> m_camera;
-	std::unique_ptr<SceneObject> m_object;
-	std::shared_ptr<ConstantBuffer> m_constantBuffer1;
+	std::unique_ptr<SceneObject> m_object1;
 	std::unique_ptr<SceneObject> m_object2;
+	std::shared_ptr<ConstantBuffer> m_constantBuffer1;
+	std::shared_ptr<ConstantBuffer> m_constantBuffer2;
 	std::shared_ptr<Model> m_cube;
 	std::shared_ptr<Texture> m_tiles;
 	std::shared_ptr<Texture> m_grass;
