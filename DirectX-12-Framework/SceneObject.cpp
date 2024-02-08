@@ -27,7 +27,10 @@ void SceneObject::Update(const float& deltaTime, const DirectX::XMMATRIX& view, 
 
 void SceneObject::Draw(ID3D12GraphicsCommandList* commandList)
 {
-    m_texture->Set(commandList);
-    m_constantBuffer->Set(commandList);
-    m_model->Draw(commandList);
+    if (m_texture)
+        m_texture->Set(commandList);
+    if (m_constantBuffer)
+        m_constantBuffer->Set(commandList);
+    if (m_model)
+        m_model->Draw(commandList);
 }

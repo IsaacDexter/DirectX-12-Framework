@@ -39,8 +39,6 @@ public:
 	std::shared_ptr<Model> CreateModel(const wchar_t* path);
 	std::shared_ptr<ConstantBuffer> CreateConstantBuffer();
 
-	SceneObject CreateSceneObject(const wchar_t* texture, const wchar_t* model);
-
 private:
 	static const UINT m_frameCount = 2;
 

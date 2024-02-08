@@ -125,26 +125,19 @@ void Renderer::Resize(UINT width, UINT height)
 
 std::shared_ptr<Texture> Renderer::CreateTexture(const wchar_t* path)
 {
-    return std::shared_ptr<Texture>();
+    return m_tiles;
 }
 
 std::shared_ptr<Model> Renderer::CreateModel(const wchar_t* path)
 {
-    return std::shared_ptr<Model>();
+    return m_cube;
 }
 
 std::shared_ptr<ConstantBuffer> Renderer::CreateConstantBuffer()
 {
-    return std::shared_ptr<ConstantBuffer>();
-}
-
-SceneObject Renderer::CreateSceneObject(const wchar_t* texture, const wchar_t* model)
-{
     auto constantBuffer = m_resourceHeap->CreateCBV();
     constantBuffer->Initialize(m_device.Get());
-    auto object = SceneObject(m_cube, m_tiles, constantBuffer);
-    object.Initialize();
-    return object;
+    return constantBuffer;
 }
 
 

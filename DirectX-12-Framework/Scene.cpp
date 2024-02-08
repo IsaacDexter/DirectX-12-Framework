@@ -16,7 +16,7 @@ void Engine::Initialize()
     for (UINT i = 0; i < m_numObjects; i++)
     {
         std::string name = "Object " + std::to_string(i);
-        auto object = m_renderer->CreateSceneObject(L"Texture", L"Model");
+        auto object = SceneObject(m_renderer->CreateModel(L"Assets/Cube.obj"), m_renderer->CreateTexture(L"Assets/Tiles.dds"), m_renderer->CreateConstantBuffer());
         object.SetPosition(i * 2, 0.0f, 0.0f);
         m_sceneObjects.try_emplace(name, object);
     }
