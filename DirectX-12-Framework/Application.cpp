@@ -19,6 +19,8 @@ Application::Application(HINSTANCE hInstance) :
 
     m_frameIndex = 0;
     m_viewport = { 0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height) };
+    m_viewport.MinDepth = 0.0f;
+    m_viewport.MaxDepth = 1.0f;
     m_scissorRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
     m_rtvDescriptorSize = 0;
 }
@@ -78,8 +80,10 @@ void Application::Update()
     // Update constant buffer
     XMMATRIX view = m_camera->GetView();
     XMMATRIX projection = m_camera->GetProj();
-    m_object1->Update(deltaTime, view, projection);
-    m_object2->Update(deltaTime, view, projection);
+    for (auto it = m_objects.begin(); it != m_objects.end(); it++)
+    {
+        it->Update(deltaTime, view, projection);
+    }
 
 
     UpdateGUI();
@@ -272,22 +276,8 @@ void Application::InitializePipeline()
             m_dsvHeap->SetName(L"m_dsvHeap");
         }
 
-        // Describe and create a Shader Resource View (SRV) heap for the texture.
-        // This heap also contains the Constant Buffer Views. These are in the same heap because
-        // CBVs, SRVs, and UAVs can be combined into a single descriptor table.
-        // This means the descriptor heap needn't be changed in the command list, which is slow and rarely used.
-        // https://learn.microsoft.com/en-us/windows/win32/direct3d12/resource-binding-flow-of-control
-        {
-            D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-            srvHeapDesc.NumDescriptors = Descriptors::Count;
-            srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;  // SRV type
-            srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  // Allow this heap to be bound to the pipeline
-            ThrowIfFailed(m_device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_srvCbvHeap)));
-            m_srvCbvHeap->SetName(L"m_srvCbvHeap");
-
-            // How much to offset the shared SRV/SBV heap by to get the next available handle
-            m_srvCbvHeapSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-        }
+        m_resourceHeap = std::make_unique<ResourceHeap>();
+        m_resourceHeap->Initialize(m_device.Get());
 
         // Describe and create sampler descriptor heap
         {
@@ -655,48 +645,17 @@ void Application::InitializeAssets()
 
 
 
-    // Create the constant buffers
-    {
-        CD3DX12_CPU_DESCRIPTOR_HANDLE cbvCpuDescriptorHandle(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart(), Descriptors::Object1, m_srvCbvHeapSize);
-        CD3DX12_GPU_DESCRIPTOR_HANDLE cbvGpuDescriptorHandle(m_srvCbvHeap->GetGPUDescriptorHandleForHeapStart(), Descriptors::Object1, m_srvCbvHeapSize);
-        UINT cbvRootParameterIndex = RootParameterIndices::CBV;
-        m_constantBuffer1 = std::make_unique<ConstantBuffer>(cbvCpuDescriptorHandle, cbvGpuDescriptorHandle, cbvRootParameterIndex);
-        m_constantBuffer1->Initialize(m_device.Get());
-    }
-    {
-        CD3DX12_CPU_DESCRIPTOR_HANDLE cbvCpuDescriptorHandle(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart(), Descriptors::Object2, m_srvCbvHeapSize);
-        CD3DX12_GPU_DESCRIPTOR_HANDLE cbvGpuDescriptorHandle(m_srvCbvHeap->GetGPUDescriptorHandleForHeapStart(), Descriptors::Object2, m_srvCbvHeapSize);
-        UINT cbvRootParameterIndex = RootParameterIndices::CBV;
-        m_constantBuffer2 = std::make_unique<ConstantBuffer>(cbvCpuDescriptorHandle, cbvGpuDescriptorHandle, cbvRootParameterIndex);
-        m_constantBuffer2->Initialize(m_device.Get());
-    }
-
     // Create the model
     m_cube = std::make_shared<Model>();
     m_cube->Initialize(m_device.Get(), m_commandList.Get());
 
     // Create the textures
-    {
-        CD3DX12_CPU_DESCRIPTOR_HANDLE srvCpuDescriptorHandle(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart(), Descriptors::Tiles, m_srvCbvHeapSize);
-        CD3DX12_GPU_DESCRIPTOR_HANDLE srvGpuDescriptorHandle(m_srvCbvHeap->GetGPUDescriptorHandleForHeapStart(), Descriptors::Tiles, m_srvCbvHeapSize);
-        UINT srvRootParameterIndex = RootParameterIndices::SRV;
-        m_tiles = std::make_unique<Texture>(srvCpuDescriptorHandle, srvGpuDescriptorHandle, srvRootParameterIndex);
-        m_tiles->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Tiles.dds");
-    }
-    {
-        CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart(), Descriptors::Grass, m_srvCbvHeapSize);
-        CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorHandle(m_srvCbvHeap->GetGPUDescriptorHandleForHeapStart(), Descriptors::Grass, m_srvCbvHeapSize);
-        UINT rootParameterIndex = RootParameterIndices::SRV;
-        m_grass = std::make_unique<Texture>(cpuDescriptorHandle, gpuDescriptorHandle, rootParameterIndex);
-        m_grass->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Grass.dds");
-    }
-    {
-        CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart(), Descriptors::Sand, m_srvCbvHeapSize);
-        CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorHandle(m_srvCbvHeap->GetGPUDescriptorHandleForHeapStart(), Descriptors::Sand, m_srvCbvHeapSize);
-        UINT rootParameterIndex = RootParameterIndices::SRV;
-        m_sand = std::make_unique<Texture>(cpuDescriptorHandle, gpuDescriptorHandle, rootParameterIndex);
-        m_sand->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Sand.dds");
-    }
+    m_tiles = m_resourceHeap->CreateSRV();
+    m_tiles->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Tiles.dds");
+    m_grass = m_resourceHeap->CreateSRV();
+    m_grass->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Grass.dds");
+    m_sand = m_resourceHeap->CreateSRV();
+    m_sand->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Sand.dds");
     // Reserve the Dear ImGui texture
     /*{
         CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart(), Descriptors::GUI, m_srvCbvHeapSize);
@@ -706,13 +665,16 @@ void Application::InitializeAssets()
         m_gui->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Grass.dds");
     }*/
     // Create the sceneObject
-    m_object1 = std::make_unique<SceneObject>(m_cube, m_tiles, m_constantBuffer1);
-    m_object1->Initialize(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get());
-    m_object1->SetPosition(1.0f, 1.0f, 0.0f);
-
-    m_object2 = std::make_unique<SceneObject>(m_cube, m_grass, m_constantBuffer2);
-    m_object2->Initialize(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get());
-    m_object2->SetPosition(1.0f, -1.0f, 0.0f);
+    for (size_t i = 0; i < m_numObjects; i++)
+    {
+        auto constantBuffer = m_resourceHeap->CreateCBV();
+        constantBuffer->Initialize(m_device.Get());
+        auto texture = (i % 2) ? m_tiles : m_grass;
+        auto object = SceneObject(m_cube, texture, constantBuffer);
+        object.Initialize(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get());
+        object.SetPosition(i*2, i % 2, 0.0f);
+        m_objects.push_back(object);
+    }
 
     CreateSampler();
 
@@ -747,7 +709,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Application::CreateRootSignature()
     // Describe range of descriptor heap encompassed by descriptor table
     CD3DX12_DESCRIPTOR_RANGE1 ranges[3] = {};
     // CBV range
-    ranges[RootParameterIndices::CBV].Init(
+    ranges[ResourceHeap::RootParameterIndices::CBV].Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_CBV,    // type of resources within the range
         1,  // number of descriptors in the range
         0,  // base shader register in the range
@@ -755,7 +717,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Application::CreateRootSignature()
         D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC // Descriptors and data are static and will not change (as they're loaded textures)
     );
     // SRV range
-    ranges[RootParameterIndices::SRV].Init(
+    ranges[ResourceHeap::RootParameterIndices::SRV].Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_SRV,    // type of resources within the range
         1,  // number of descriptors in the range
         0,  // base shader register in the range
@@ -763,7 +725,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Application::CreateRootSignature()
         D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC // Descriptors and data are static and will not change (as they're loaded textures)
     );
     // Sampler range
-    ranges[RootParameterIndices::Sampler].Init(
+    ranges[ResourceHeap::RootParameterIndices::Sampler].Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER,    // Samplers lie within this range
         1,  // Just one of them
         0   // Bound to the base register
@@ -773,21 +735,21 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Application::CreateRootSignature()
     // Describe layout of descriptor tables to the root signature based on ranges
     CD3DX12_ROOT_PARAMETER1 rootParameters[3] = {};
     // CBV root parameters
-    rootParameters[RootParameterIndices::CBV].InitAsDescriptorTable(
+    rootParameters[ResourceHeap::RootParameterIndices::CBV].InitAsDescriptorTable(
         1,  // number of ranges in this table
-        &ranges[RootParameterIndices::CBV], // Descriptor range specified already 
+        &ranges[ResourceHeap::RootParameterIndices::CBV], // Descriptor range specified already 
         D3D12_SHADER_VISIBILITY_VERTEX   // Specify that the vertex shader can access these textures
     );
     // SRV root parameters
-    rootParameters[RootParameterIndices::SRV].InitAsDescriptorTable(
+    rootParameters[ResourceHeap::RootParameterIndices::SRV].InitAsDescriptorTable(
         1,  // number of ranges in this table
-        &ranges[RootParameterIndices::SRV], // Descriptor range specified already 
+        &ranges[ResourceHeap::RootParameterIndices::SRV], // Descriptor range specified already 
         D3D12_SHADER_VISIBILITY_PIXEL   // Specify that the pixel shader can access these textures
     );
     // Describe sampler descriptor table
-    rootParameters[RootParameterIndices::Sampler].InitAsDescriptorTable(
+    rootParameters[ResourceHeap::RootParameterIndices::Sampler].InitAsDescriptorTable(
         1,  // Number of ranges in this table
-        &ranges[RootParameterIndices::Sampler], // Said descriptor ranges
+        &ranges[ResourceHeap::RootParameterIndices::Sampler], // Said descriptor ranges
         D3D12_SHADER_VISIBILITY_PIXEL   // Only pixel shader need access sampler
     );
 
@@ -944,7 +906,7 @@ Microsoft::WRL::ComPtr<ID3D12PipelineState> Application::CreatePipelineStateObje
 
     // Describe depth stencil state for pipeline state object, to be default and disabled
     CD3DX12_DEPTH_STENCIL_DESC1 dsDesc(D3D12_DEFAULT);
-    dsDesc.DepthEnable = false;
+    dsDesc.DepthEnable = true;
     dsDesc.StencilEnable = false;
 
     // Describe rasterizer state for pipeline with default values
@@ -1010,13 +972,12 @@ void Application::InitializeGUI()
 
     // Setup Platform/Renderer backends
     ImGui_ImplWin32_Init(m_window->GetHWND());
-    CD3DX12_CPU_DESCRIPTOR_HANDLE srvCbvHeapHandleCPU(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart(), Descriptors::GUI, m_srvCbvHeapSize);
-    CD3DX12_GPU_DESCRIPTOR_HANDLE srvCbvHeapHandleGPU(m_srvCbvHeap->GetGPUDescriptorHandleForHeapStart(), Descriptors::GUI, m_srvCbvHeapSize);
+    auto srv = m_resourceHeap->CreateSRV();
     ImGui_ImplDX12_Init(m_device.Get(), m_frameCount, DXGI_FORMAT_R8G8B8A8_UNORM,
-        m_srvCbvHeap.Get(),
+        m_resourceHeap->GetHeap(),
         // You'll need to designate a descriptor from your descriptor heap for Dear ImGui to use internally for its font texture's SRV
-        srvCbvHeapHandleCPU,
-        srvCbvHeapHandleGPU
+        srv->GetCpuDescriptorHandle(),
+        srv->GetGpuDescriptorHandle()
     );
 #endif
 }
@@ -1107,11 +1068,11 @@ void Application::PopulateCommandList()
     // Set necessary state.
     m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
     // Set command list shader resource view and constant buffer view
-    ID3D12DescriptorHeap* ppHeaps[] = { m_srvCbvHeap.Get(), m_samplerHeap.Get()};
+    ID3D12DescriptorHeap* ppHeaps[] = { m_resourceHeap->GetHeap(), m_samplerHeap.Get()};
     m_commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
     // Describe how samplers are laid out to GPU
-    m_commandList->SetGraphicsRootDescriptorTable(RootParameterIndices::Sampler, m_samplerHeap->GetGPUDescriptorHandleForHeapStart());
+    m_commandList->SetGraphicsRootDescriptorTable(ResourceHeap::RootParameterIndices::Sampler, m_samplerHeap->GetGPUDescriptorHandleForHeapStart());
 
     m_commandList->RSSetViewports(1, &m_viewport);
     m_commandList->RSSetScissorRects(1, &m_scissorRect);
@@ -1139,9 +1100,9 @@ void Application::PopulateCommandList()
     // Update Model View Projection (MVP) Matrix according to camera position
     
     // Draw object
+    for (auto it = m_objects.begin(); it != m_objects.end(); it++)
     {
-        m_object1->Draw(m_commandList.Get());
-        m_object2->Draw(m_commandList.Get());
+        it->Draw(m_commandList.Get());
     }
     
 

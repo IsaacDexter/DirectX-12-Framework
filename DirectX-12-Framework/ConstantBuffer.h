@@ -15,8 +15,8 @@ protected:
 	{
 		// Constant buffer must be 256-Byte aligned 
 		// Model View Projection matrix
-		DirectX::XMFLOAT4X4 mvp;	//4 * 4 = 16 Bytes
-		float padding[48];	//60 * 4 =	240 Bytes
+		DirectX::XMFLOAT4X4 mvp;	//4 * 4 * 4 =	64 Bytes
+		float padding[48];			//4 * 48 =		192 Bytes
 	};
 	// Ensure constant buffer is 256-byte aligned
 	static_assert((sizeof(SceneConstantBuffer) % 256) == 0, "Constant Buffer size must be 256-byte aligned");
