@@ -78,8 +78,10 @@ void Application::Update()
     // Update constant buffer
     XMMATRIX view = m_camera->GetView();
     XMMATRIX projection = m_camera->GetProj();
-    m_object1->Update(deltaTime, view, projection);
-    m_object2->Update(deltaTime, view, projection);
+    for (auto it = m_objects.begin(); it != m_objects.end(); it++)
+    {
+        it->Update(deltaTime, view, projection);
+    }
 
 
     UpdateGUI();
@@ -661,19 +663,15 @@ void Application::InitializeAssets()
         m_gui->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Grass.dds");
     }*/
     // Create the sceneObject
+    for (size_t i = 0; i < m_numObjects; i++)
     {
         auto constantBuffer = m_resourceHeap->CreateCBV();
         constantBuffer->Initialize(m_device.Get());
-        m_object1 = std::make_unique<SceneObject>(m_cube, m_tiles, constantBuffer);
-        m_object1->Initialize(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get());
-        m_object1->SetPosition(1.0f, 1.0f, 0.0f);
-    }
-    {
-        auto constantBuffer = m_resourceHeap->CreateCBV();
-        constantBuffer->Initialize(m_device.Get());
-        m_object2 = std::make_unique<SceneObject>(m_cube, m_grass, constantBuffer);
-        m_object2->Initialize(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get());
-        m_object2->SetPosition(1.0f, -1.0f, 0.0f);
+        auto texture = (i % 2) ? m_tiles : m_grass;
+        auto object = SceneObject(m_cube, texture, constantBuffer);
+        object.Initialize(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get());
+        object.SetPosition(i*2, i % 2, 0.0f);
+        m_objects.push_back(object);
     }
 
     CreateSampler();
@@ -1100,9 +1098,9 @@ void Application::PopulateCommandList()
     // Update Model View Projection (MVP) Matrix according to camera position
     
     // Draw object
+    for (auto it = m_objects.begin(); it != m_objects.end(); it++)
     {
-        m_object1->Draw(m_commandList.Get());
-        m_object2->Draw(m_commandList.Get());
+        it->Draw(m_commandList.Get());
     }
     
 
