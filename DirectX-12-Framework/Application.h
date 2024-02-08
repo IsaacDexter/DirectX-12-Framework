@@ -14,6 +14,7 @@
 #include "Model.h"
 #include "Texture.h"
 #include "ConstantBuffer.h"
+#include "ResourceHeap.h"
 
 class Window;
 
@@ -74,13 +75,7 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_dsv;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_samplerHeap;
-
-	// Texture
-	// Shader resource view heap for accessing data in a resource (texture)
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvCbvHeap;
-	// How much to offset the shared SRV/SBV heap by to get the next available handle
-	UINT m_srvCbvHeapSize;
-
+	std::unique_ptr<ResourceHeap> m_resourceHeap;
 	
 
 	enum Descriptors
@@ -93,12 +88,7 @@ private:
 		GUI,
 		Count,
 	};
-	enum RootParameterIndices
-	{
-		SRV,
-		CBV,
-		Sampler,
-	};
+	
 
 #pragma endregion
 

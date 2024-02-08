@@ -11,6 +11,19 @@ public:
 	*/
 	Resource(const D3D12_CPU_DESCRIPTOR_HANDLE& cpuDescriptorHandle, const D3D12_GPU_DESCRIPTOR_HANDLE& gpuDescriptorHandle, const UINT& rootParameterIndex);
 	void Set(ID3D12GraphicsCommandList* commandList);
+
+	const D3D12_CPU_DESCRIPTOR_HANDLE& GetCpuDescriptorHandle()
+	{
+		return m_cpuDescriptorHandle;
+	}
+	const D3D12_GPU_DESCRIPTOR_HANDLE& GetGpuDescriptorHandle()
+	{
+		return m_gpuDescriptorHandle;
+	}
+	const UINT& GetRootParameterIndex()
+	{
+		return m_rootParameterIndex;
+	}
 protected:
 	const D3D12_CPU_DESCRIPTOR_HANDLE m_cpuDescriptorHandle;
 	const D3D12_GPU_DESCRIPTOR_HANDLE m_gpuDescriptorHandle;
