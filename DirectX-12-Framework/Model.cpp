@@ -7,10 +7,16 @@ m_vertexBufferView()
 {
 }
 
-void Model::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList)
+void Model::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature)
 {
     CreateVertexBuffer(device, commandList);
     CreateIndexBuffer(device, commandList);
+    CreateBundle(device, pipelineState, rootSignature);
+}
+
+void Model::Draw(ID3D12GraphicsCommandList* commandList)
+{
+    commandList->ExecuteBundle(m_bundle.Get());
 }
 
 void Model::CreateVertexBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* commandList)
@@ -252,4 +258,24 @@ void Model::CreateIndexBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* c
         m_indexBufferView.SizeInBytes = ibSize;    // specify size of the buffer in bytes
         m_indexBufferView.Format = DXGI_FORMAT_R32_UINT;    // Specify DWORD as format
     }
+}
+
+void Model::CreateBundle(ID3D12Device* device, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature)
+{
+    // Create bundle allocator
+    ThrowIfFailed(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_BUNDLE, IID_PPV_ARGS(&m_bundleAllocator)), "Couldn't create command bundle.\n");
+
+    // Create the bundle for drawing this model
+    ThrowIfFailed(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_BUNDLE, m_bundleAllocator.Get(), pipelineState, IID_PPV_ARGS(&m_bundle)));
+
+    // Populate the bundle with what is necessary to draw this model
+    m_bundle->SetGraphicsRootSignature(rootSignature);
+    m_bundle->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    m_bundle->IASetVertexBuffers(0, 1, &m_vertexBufferView);
+    m_bundle->IASetIndexBuffer(&m_indexBufferView);
+    m_bundle->DrawIndexedInstanced(m_numIndices, 1, 0, 0, 0);
+
+    // Cease recording of this bundle
+    ThrowIfFailed(m_bundle->Close());
+
 }

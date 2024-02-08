@@ -7,7 +7,7 @@ ResourceHeap::ResourceHeap() :
     m_resources = std::unordered_map< std::shared_ptr<Resource>, UINT>();
 };
 
-void ResourceHeap::Initialize(ID3D12Device* device)
+void ResourceHeap::Initialize(ID3D12Device* device, ID3D12PipelineState* pipelineState)
 {
     // Describe and create a Shader Resource View (SRV) heap for the texture.
     // This heap also contains the Constant Buffer Views. These are in the same heap because
@@ -24,6 +24,17 @@ void ResourceHeap::Initialize(ID3D12Device* device)
 
     // How much to offset the shared SRV/SBV heap by to get the next available handle
     m_heapSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+    ThrowIfFailed(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocator)), "Couldn't create command allocator.\n");
+
+    // Create command list, and set it to closed state
+    ThrowIfFailed(device->CreateCommandList(
+        0,  // 0 for single GPU, for multi-adapter
+        D3D12_COMMAND_LIST_TYPE_DIRECT, // Create a direct command list that the GPU can execute
+        m_commandAllocator.Get(),   // Command allocator associated with this list
+        pipelineState,  // Pipeline state
+        IID_PPV_ARGS(&m_commandList)
+    ), "Failed to create command list.\n");
 
 }
 const std::shared_ptr<Texture> ResourceHeap::CreateSRV()

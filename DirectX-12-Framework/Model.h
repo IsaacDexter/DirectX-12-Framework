@@ -5,25 +5,15 @@ class Model
 {
 public:
 	Model();
-	void Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList);
+	void Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature);
+	void Draw(ID3D12GraphicsCommandList* commandList);
+private:
 	void CreateVertexBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* commandList);
 	void CreateIndexBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* commandList);
-
-	const D3D12_VERTEX_BUFFER_VIEW& GetVertexBufferView()
-	{
-		return m_vertexBufferView;
-	}
+	void CreateBundle(ID3D12Device* device, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature);
 	
-	const D3D12_INDEX_BUFFER_VIEW& GetIndexBufferView()
-	{
-		return m_indexBufferView;
-	}
 	
-	const UINT& GetNumIndices()
-	{
-		return m_numIndices;
-	}
-private:
+	
 	struct Vertex
 	{
 		DirectX::XMFLOAT3 position;
@@ -40,5 +30,14 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_ibUploadHeap;
 	// Create an upload heap to upload vertex data to the GPU vertex buffer heap
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_vbUploadHeap;
+
+	/**
+	* Bundle allocator with which to create the bundle
+	*/
+	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> m_bundleAllocator;
+	/**
+	* Bundle to hand to the application that encompasses the drawing of this model
+	*/
+	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_bundle;
 };
 

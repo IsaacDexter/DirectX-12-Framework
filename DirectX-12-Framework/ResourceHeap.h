@@ -10,7 +10,7 @@ class ResourceHeap
 {
 public:
     ResourceHeap();
-    void Initialize(ID3D12Device* device);
+    void Initialize(ID3D12Device* device, ID3D12PipelineState* pipelineState);
     
 
     const std::shared_ptr<Texture> CreateSRV();
@@ -32,6 +32,8 @@ protected:
 
 	// Shader resource view heap for accessing data in a resource (texture)
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_heap;
+    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_commandList;
+    Microsoft::WRL::ComPtr<ID3D12CommandAllocator> m_commandAllocator;
 	// How much to offset the shared SRV/SBV heap by to get the next available handle
 	UINT m_heapSize;
     /** 

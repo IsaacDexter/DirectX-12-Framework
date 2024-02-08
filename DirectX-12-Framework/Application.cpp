@@ -140,11 +140,10 @@ std::shared_ptr<ConstantBuffer> Renderer::CreateConstantBuffer()
 
 SceneObject Renderer::CreateSceneObject(const wchar_t* texture, const wchar_t* model)
 {
-
     auto constantBuffer = m_resourceHeap->CreateCBV();
     constantBuffer->Initialize(m_device.Get());
     auto object = SceneObject(m_cube, m_tiles, constantBuffer);
-    object.Initialize(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get());
+    object.Initialize();
     return object;
 }
 
@@ -205,9 +204,6 @@ void Renderer::InitializePipeline(HWND hWnd, UINT width, UINT height)
             ThrowIfFailed(m_device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_dsvHeap)));
             m_dsvHeap->SetName(L"m_dsvHeap");
         }
-
-        m_resourceHeap = std::make_unique<ResourceHeap>();
-        m_resourceHeap->Initialize(m_device.Get());
 
         // Describe and create sampler descriptor heap
         {
@@ -573,12 +569,13 @@ void Renderer::InitializeAssets()
     ), "Failed to create command list.\n");
 
 
-
+    m_resourceHeap = std::make_unique<ResourceHeap>();
+    m_resourceHeap->Initialize(m_device.Get(), m_pipelineState.Get());
 
 
     // Create the model
     m_cube = std::make_shared<Model>();
-    m_cube->Initialize(m_device.Get(), m_commandList.Get());
+    m_cube->Initialize(m_device.Get(), m_commandList.Get(), m_pipelineState.Get(), m_rootSignature.Get());
 
     // Create the textures
     m_tiles = m_resourceHeap->CreateSRV();
