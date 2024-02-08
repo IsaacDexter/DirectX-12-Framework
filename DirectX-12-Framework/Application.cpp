@@ -19,6 +19,8 @@ Application::Application(HINSTANCE hInstance) :
 
     m_frameIndex = 0;
     m_viewport = { 0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height) };
+    m_viewport.MinDepth = 0.0f;
+    m_viewport.MaxDepth = 1.0f;
     m_scissorRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
     m_rtvDescriptorSize = 0;
 }
@@ -904,7 +906,7 @@ Microsoft::WRL::ComPtr<ID3D12PipelineState> Application::CreatePipelineStateObje
 
     // Describe depth stencil state for pipeline state object, to be default and disabled
     CD3DX12_DEPTH_STENCIL_DESC1 dsDesc(D3D12_DEFAULT);
-    dsDesc.DepthEnable = false;
+    dsDesc.DepthEnable = true;
     dsDesc.StencilEnable = false;
 
     // Describe rasterizer state for pipeline with default values
