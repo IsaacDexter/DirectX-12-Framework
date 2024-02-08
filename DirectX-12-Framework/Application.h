@@ -7,21 +7,20 @@
 #include "imgui_impl_dx12.h"
 #include "imgui_impl_win32.h"
 #include <chrono>
+#include <map>
 
 #include "Camera.h"
 #include "Controls.h"
-#include "SceneObject.h"
 #include "Model.h"
 #include "Texture.h"
 #include "ConstantBuffer.h"
 #include "ResourceHeap.h"
+#include "SceneObject.h"
 
-class Window;
-
-class Application
+class Renderer
 {
 public:
-	Application(HINSTANCE hInstance);
+	Renderer();
 	
 	/*
 	1. Initialize
@@ -30,21 +29,17 @@ public:
 		- Render
 	3. Destroy
 	*/
-	void Initialize();
+	void Initialize(HWND hWnd, UINT width, UINT height);
 	void Update();
-	/**
-	* Handle keyboard input
-	*/
-	void OnKeyDown(WPARAM wParam);
-	void OnKeyUp(WPARAM wParam);
-	/**
-	* Handle mouse input
-	*/
-	void OnMouseMove(int dX, int dY);
-	void Render();
+	void Render(std::map<std::string, SceneObject>& objects);
 	void Destroy();
-	void Resize();
+	void Resize(UINT width, UINT height);
 
+	std::shared_ptr<Texture> CreateTexture(const wchar_t* path);
+	std::shared_ptr<Model> CreateModel(const wchar_t* path);
+	std::shared_ptr<ConstantBuffer> CreateConstantBuffer();
+
+	SceneObject CreateSceneObject(const wchar_t* texture, const wchar_t* model);
 
 private:
 	static const UINT m_frameCount = 2;
@@ -55,8 +50,8 @@ private:
 	D3D12_RECT m_scissorRect;
 	Microsoft::WRL::ComPtr<IDXGISwapChain3> m_swapChain;
 	Microsoft::WRL::ComPtr<ID3D12Device4> m_device;
-	std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Application::m_frameCount> m_renderTargets;
-	std::array<Microsoft::WRL::ComPtr<ID3D12CommandAllocator>, Application::m_frameCount > m_commandAllocators;
+	std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Renderer::m_frameCount> m_renderTargets;
+	std::array<Microsoft::WRL::ComPtr<ID3D12CommandAllocator>, Renderer::m_frameCount > m_commandAllocators;
 	Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_commandQueue;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_rootSignature;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
@@ -76,7 +71,6 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_samplerHeap;
 	std::unique_ptr<ResourceHeap> m_resourceHeap;
-	
 
 	enum Descriptors
 	{
@@ -97,15 +91,10 @@ private:
 	UINT m_frameIndex;
 	HANDLE m_fenceEvent;
 	Microsoft::WRL::ComPtr<ID3D12Fence> m_fence;
-	std::array<UINT64, Application::m_frameCount> m_fenceValues;
+	std::array<UINT64, Renderer::m_frameCount> m_fenceValues;
 
 #pragma endregion
 
-	std::shared_ptr<Window> m_window;
-
-	std::unique_ptr<Camera> m_camera;
-	std::vector<SceneObject> m_objects;
-	UINT m_numObjects = 20;
 	std::shared_ptr<Model> m_cube;
 	std::shared_ptr<Texture> m_tiles;
 	std::shared_ptr<Texture> m_grass;
@@ -114,7 +103,7 @@ private:
 private:
 #pragma region Initialization
 
-	void InitializePipeline();
+	void InitializePipeline(HWND hWnd, UINT width, UINT height);
 
 	Microsoft::WRL::ComPtr<ID3D12Debug> EnableDebugLayer();
 	/**
@@ -160,7 +149,7 @@ private:
 	*/
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(Microsoft::WRL::ComPtr<ID3D12Device4> device, const D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors, UINT &descriptorSize);
 
-	void UpdateRenderTargetViews(Microsoft::WRL::ComPtr<ID3D12Device4> device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> rtvHeap, Microsoft::WRL::ComPtr<IDXGISwapChain3> swapChain, std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Application::m_frameCount>& renderTargets);
+	void UpdateRenderTargetViews(Microsoft::WRL::ComPtr<ID3D12Device4> device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> rtvHeap, Microsoft::WRL::ComPtr<IDXGISwapChain3> swapChain, std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Renderer::m_frameCount>& renderTargets);
 
 	/**
 	* Create a resource large enough to hold buffer data
@@ -195,7 +184,7 @@ private:
 
 	void CreateSyncObjects();
 
-	void UpdateDepthStencilView(Microsoft::WRL::ComPtr<ID3D12Resource> &dsv, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& dsvHeap);
+	void UpdateDepthStencilView(Microsoft::WRL::ComPtr<ID3D12Resource> &dsv, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& dsvHeap, UINT width, UINT height);
 
 	
 	
@@ -210,7 +199,7 @@ private:
 	*/
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> CreatePipelineStateObject(ID3DBlob* pVertexShaderBlob, ID3DBlob* pPixelShaderBlob);
 
-	void InitializeGUI();
+	void InitializeGUI(HWND hWnd);
 	void UpdateGUI();
 	void DestroyGUI();
 	void RenderGUI(ID3D12GraphicsCommandList* commandList);
@@ -222,7 +211,7 @@ private:
 
 #pragma region Rendering
 
-	void PopulateCommandList();
+	void PopulateCommandList(std::map<std::string, SceneObject>& objects);
 
 #pragma endregion
 };

@@ -61,10 +61,21 @@ public:
     void OnKeyDown(WPARAM input);
     void OnKeyUp(WPARAM input);
     
-    void MouseInput(int dX, int dY)
+    void OnMouseMove(int dX, int dY, WPARAM wParam)
     {
-        m_dX += dX;
-        m_dY += dY;
+        switch (wParam)
+        {
+        case MK_LBUTTON:
+        {
+            m_dX += dX;
+            m_dY += dY;
+        }
+        break;
+        default:
+        {
+            break;
+        }
+        }
     }
 
     void Update(const float& deltaTime);

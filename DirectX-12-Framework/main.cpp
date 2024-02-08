@@ -1,15 +1,15 @@
 #include "stdafx.h"
-#include "Application.h"
+#include "Scene.h"
 #include "Window.h"
 // For mouse input helpers
 #include <windowsx.h>
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow);
 
-static std::unique_ptr<Application> g_application;
+static std::unique_ptr<Engine> g_application;
 
 int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow){
-	g_application = std::make_unique<Application>(hInstance);
+	g_application = std::make_unique<Engine>(hInstance);
 	g_application->Initialize();
 
 
@@ -50,7 +50,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		}
 		case WM_SIZE:
 		{
-			g_application->Resize();
+			g_application->OnResize();
 			break;
 		}
 		case WM_SYSKEYDOWN:
@@ -71,21 +71,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			static auto lastY = GET_Y_LPARAM(lParam);
 			auto x = GET_X_LPARAM(lParam);
 			auto y = GET_Y_LPARAM(lParam);
-
-			switch (wParam)
-			{
-			case MK_LBUTTON:
-			{
-
-				auto dX = x - lastX;
-				auto dY = y - lastY;
-				g_application->OnMouseMove(dX, dY);
-				break;
-			}
-			default:
-				break;
-			}
-
+			auto dX = x - lastX;
+			auto dY = y - lastY;
+			g_application->OnMouseMove(dX, dY, wParam);
+			
 			lastX = x;
 			lastY = y;
 			break;

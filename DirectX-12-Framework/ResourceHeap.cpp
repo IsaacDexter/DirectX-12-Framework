@@ -1,10 +1,10 @@
 #include "ResourceHeap.h"
 
 ResourceHeap::ResourceHeap() :
-    m_heapSize(NULL),
-    m_resources()
+    m_heapSize(NULL)
 {
-
+    m_freedOffsets = std::queue<UINT>();
+    m_resources = std::unordered_map< std::shared_ptr<Resource>, UINT>();
 };
 
 void ResourceHeap::Initialize(ID3D12Device* device)

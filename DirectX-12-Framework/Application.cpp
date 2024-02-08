@@ -6,132 +6,39 @@ using namespace DirectX;
 
 #define _GUI
 
-Application::Application(HINSTANCE hInstance) :
+Renderer::Renderer() :
     m_fenceValues{},
     m_renderTargets {},
     m_commandAllocators{}
 {
-    m_window = std::make_shared<Window>(hInstance);
-    m_camera = std::make_unique<Camera>(XMFLOAT3(0.0f, 0.0f, 3.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), m_window->GetAspectRatio());
+    
+}
 
-    auto width = m_window->GetClientWidth();
-    auto height = m_window->GetClientHeight();
-
+void Renderer::Initialize(HWND hWnd, UINT width, UINT height)
+{
     m_frameIndex = 0;
     m_viewport = { 0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height) };
     m_viewport.MinDepth = 0.0f;
     m_viewport.MaxDepth = 1.0f;
     m_scissorRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
     m_rtvDescriptorSize = 0;
-}
-
-void Application::Initialize()
-{
 	// Initialize Pipeline
 	// Initialize Assets
-	InitializePipeline();
+	InitializePipeline(hWnd, width, height);
 	InitializeAssets();
-    m_window->Show();
+    InitializeGUI(hWnd);
 
 }
 
-void Application::Update()
+void Renderer::Update()
 {
-    // Log FPS
+    
 
-        // Set up timers and frame counters
-        ///<summary>number of times a frame was rendered to the screen since last frameRate was outputted</summary>
-    static uint64_t frameCounter = 0;
-    ///<summary>number of seconds passed since last frameRate was outputted</summary>
-    static double elapsedSeconds = 0.0;
-    ///<summary>clock used to sample time points</summary>
-    static std::chrono::high_resolution_clock clock;
-    ///<summary>initial point in time, the time at the last frame</summary>
-    static auto timeLast = clock.now();
-
-    // calculate the new deltaTime
-    frameCounter++;
-    auto timeNow = clock.now();
-    auto timeSince = timeNow - timeLast;
-    timeLast = timeNow;
-
-    // add the delta time, in seconds, since the last frame
-    auto deltaTime = timeSince.count() * 1e-9;
-    elapsedSeconds += deltaTime;
-
-    // output the FPS
-    // if it's been a second...
-    if (elapsedSeconds > 10.0)
-    {
-
-        auto fps = frameCounter / elapsedSeconds;
-        char buffer[500];
-        sprintf_s(buffer, 500, "FPS: %f, DT: %f\n", fps, deltaTime);
-        OutputDebugStringA(buffer);
-
-        // reset counters
-        frameCounter = 0;
-        elapsedSeconds = 0.0;
-    }
-
-    // Update the camera based on input previously passed to it.
-    m_camera->Update(deltaTime);
-
-    // Update constant buffer
-    XMMATRIX view = m_camera->GetView();
-    XMMATRIX projection = m_camera->GetProj();
-    for (auto it = m_objects.begin(); it != m_objects.end(); it++)
-    {
-        it->Update(deltaTime, view, projection);
-    }
-
-
-    UpdateGUI();
-}
-
-void Application::OnKeyDown(WPARAM wParam)
-{
-    bool alt = (::GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
-
-    switch (wParam)
-    {
-        // Quit
-    case VK_ESCAPE:
-    {
-        ::PostQuitMessage(0);
-        Destroy();
-        break;
-    }
-        // Toggle Fullscreen
-    case VK_RETURN:
-        if (alt)
-        {
-    case VK_F11:
-        m_window->SetFullscreen();
-        }
-        break;
-    default:
-        break;
-    }
-
-    // Pass input to the camera to handle of it's own accord.
-    m_camera->OnKeyDown(wParam);
 
 }
 
-void Application::OnKeyUp(WPARAM wParam)
-{
-    m_camera->OnKeyUp(wParam);
-}
-
-void Application::OnMouseMove(int dX, int dY)
-{
-    m_camera->MouseInput(dX, dY);
-}
-
-void Application::Render()
-{
-    /*
+void Renderer::Render(std::map<std::string, SceneObject>& objects)
+{/*
     - Populate command list
 	    - Reset command list allocator
 		    - Re-use memory associated with command allocator
@@ -151,8 +58,10 @@ void Application::Render()
 	    - Wait on fence
     */
     
+    UpdateGUI();
+
     // Record all rendering commands into the command list
-    PopulateCommandList();
+    PopulateCommandList(objects);
 
     // Execute the command list
     // Put the command list into an array (of one) for execution on the queue
@@ -166,7 +75,7 @@ void Application::Render()
     MoveToNextFrame();
 }
 
-void Application::Destroy()
+void Renderer::Destroy()
 {
     // Wait for the GPU to be done with all resources.
     WaitForGpu();
@@ -176,48 +85,69 @@ void Application::Destroy()
     DestroyGUI();
 }
 
-void Application::Resize()
+void Renderer::Resize(UINT width, UINT height)
 {
-    // Check if the size actually changed
-    if (m_window->Resize())
+
+    // flush the GPU queue to ensure the buffers aren't currently in use
+    // I think this is the problem
+    WaitForGpu();
+
+    for (int i = 0; i < m_frameCount; ++i)
     {
-        // flush the GPU queue to ensure the buffers aren't currently in use
-        // I think this is the problem
-        WaitForGpu();
-
-        for (int i = 0; i < m_frameCount; ++i)
-        {
-            // relesase references to renderTargets before resizing
-            m_renderTargets[i].Reset();
-        }
-
-        auto width = m_window->GetClientWidth();
-        auto height = m_window->GetClientHeight();
-
-        // query the swap chain description so the same colour format and flags can be used to recreate it
-        DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
-        ThrowIfFailed(m_swapChain->GetDesc(&swapChainDesc));
-        // recreate the swap chain with the new size from the same description
-        ThrowIfFailed(m_swapChain->ResizeBuffers(
-            m_frameCount,
-            width,
-            height,
-            swapChainDesc.BufferDesc.Format,
-            swapChainDesc.Flags
-        ));
-        // update the back buffer index known by the application, as it may not be the same as the resized version
-        MoveToNextFrame();
-        // as the swap chain buffers have been resized, update their descriptors too
-        UpdateRenderTargetViews(m_device, m_rtvHeap, m_swapChain, m_renderTargets);
-        UpdateDepthStencilView(m_dsv, m_dsvHeap);
-        // Update the size of the scissor rect
-        m_scissorRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
-        // Update the viewport also    
-        m_viewport = { 0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height) };
-        // Update camera aspect ratio
-        m_camera->SetAspectRatio(m_window->GetAspectRatio());
+        // relesase references to renderTargets before resizing
+        m_renderTargets[i].Reset();
     }
+
+
+
+    // query the swap chain description so the same colour format and flags can be used to recreate it
+    DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
+    ThrowIfFailed(m_swapChain->GetDesc(&swapChainDesc));
+    // recreate the swap chain with the new size from the same description
+    ThrowIfFailed(m_swapChain->ResizeBuffers(
+        m_frameCount,
+        width,
+        height,
+        swapChainDesc.BufferDesc.Format,
+        swapChainDesc.Flags
+    ));
+    // update the back buffer index known by the application, as it may not be the same as the resized version
+    MoveToNextFrame();
+    // as the swap chain buffers have been resized, update their descriptors too
+    UpdateRenderTargetViews(m_device, m_rtvHeap, m_swapChain, m_renderTargets);
+    UpdateDepthStencilView(m_dsv, m_dsvHeap, width, height);
+    // Update the size of the scissor rect
+    m_scissorRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
+    // Update the viewport also    
+    m_viewport = { 0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height) };
+
 }
+
+std::shared_ptr<Texture> Renderer::CreateTexture(const wchar_t* path)
+{
+    return std::shared_ptr<Texture>();
+}
+
+std::shared_ptr<Model> Renderer::CreateModel(const wchar_t* path)
+{
+    return std::shared_ptr<Model>();
+}
+
+std::shared_ptr<ConstantBuffer> Renderer::CreateConstantBuffer()
+{
+    return std::shared_ptr<ConstantBuffer>();
+}
+
+SceneObject Renderer::CreateSceneObject(const wchar_t* texture, const wchar_t* model)
+{
+
+    auto constantBuffer = m_resourceHeap->CreateCBV();
+    constantBuffer->Initialize(m_device.Get());
+    auto object = SceneObject(m_cube, m_tiles, constantBuffer);
+    object.Initialize(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get());
+    return object;
+}
+
 
 /*
 - Enable debug layer
@@ -228,7 +158,7 @@ void Application::Resize()
 - Create frame resources
 - Create command allocator
 */
-void Application::InitializePipeline()
+void Renderer::InitializePipeline(HWND hWnd, UINT width, UINT height)
 {
 #if defined (_DEBUG)
     {
@@ -249,7 +179,7 @@ void Application::InitializePipeline()
     // create the direct command queue
     m_commandQueue = CreateCommandQueue(m_device, D3D12_COMMAND_LIST_TYPE_DIRECT);
 
-    m_swapChain = CreateSwapChain(m_window->GetHWND(), m_commandQueue, m_window->GetClientWidth(), m_window->GetClientHeight(), m_frameCount);
+    m_swapChain = CreateSwapChain(hWnd, m_commandQueue, width, height, m_frameCount);
 
     // Create descriptor heaps
     {
@@ -292,6 +222,7 @@ void Application::InitializePipeline()
         
     }
 
+    UpdateDepthStencilView(m_dsv, m_dsvHeap, width, height);
 
 
     // Create the render target views
@@ -311,7 +242,7 @@ void Application::InitializePipeline()
 
 
 
-Microsoft::WRL::ComPtr<ID3D12Debug> Application::EnableDebugLayer()
+Microsoft::WRL::ComPtr<ID3D12Debug> Renderer::EnableDebugLayer()
 {
     // Enable the D3D12 debug layer.
     ComPtr<ID3D12Debug> debugController;
@@ -322,7 +253,7 @@ Microsoft::WRL::ComPtr<ID3D12Debug> Application::EnableDebugLayer()
     return debugController;
 }
 
-Microsoft::WRL::ComPtr<IDXGIAdapter4> Application::GetAdapter(bool useWarpDevice)
+Microsoft::WRL::ComPtr<IDXGIAdapter4> Renderer::GetAdapter(bool useWarpDevice)
 {
 
     // a DXGI factory must be created before querying available adaptors
@@ -371,7 +302,7 @@ Microsoft::WRL::ComPtr<IDXGIAdapter4> Application::GetAdapter(bool useWarpDevice
     return dxgiAdapter4;
 }
 
-void Application::GetHardwareAdapter(IDXGIFactory4* pFactory, IDXGIAdapter1** ppAdapter)
+void Renderer::GetHardwareAdapter(IDXGIFactory4* pFactory, IDXGIAdapter1** ppAdapter)
 {
     *ppAdapter = nullptr;
     for (UINT adapterIndex = 0; ; ++adapterIndex)
@@ -395,7 +326,7 @@ void Application::GetHardwareAdapter(IDXGIFactory4* pFactory, IDXGIAdapter1** pp
 
 }
 
-Microsoft::WRL::ComPtr<ID3D12Device4> Application::CreateDevice(Microsoft::WRL::ComPtr<IDXGIAdapter4> adapter)
+Microsoft::WRL::ComPtr<ID3D12Device4> Renderer::CreateDevice(Microsoft::WRL::ComPtr<IDXGIAdapter4> adapter)
 {
     ComPtr<ID3D12Device4> d3d12Device3;
     ThrowIfFailed(D3D12CreateDevice(
@@ -448,7 +379,7 @@ Microsoft::WRL::ComPtr<ID3D12Device4> Application::CreateDevice(Microsoft::WRL::
     return d3d12Device3;
 }
 
-void Application::CreateDevice()
+void Renderer::CreateDevice()
 {
     ComPtr<IDXGIFactory4> factory;
     ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&factory)));
@@ -477,7 +408,7 @@ void Application::CreateDevice()
     }
 }
 
-Microsoft::WRL::ComPtr<ID3D12CommandQueue> Application::CreateCommandQueue(Microsoft::WRL::ComPtr<ID3D12Device> device, const D3D12_COMMAND_LIST_TYPE type)
+Microsoft::WRL::ComPtr<ID3D12CommandQueue> Renderer::CreateCommandQueue(Microsoft::WRL::ComPtr<ID3D12Device> device, const D3D12_COMMAND_LIST_TYPE type)
 {
     Microsoft::WRL::ComPtr<ID3D12CommandQueue> commandQueue;
 
@@ -491,7 +422,7 @@ Microsoft::WRL::ComPtr<ID3D12CommandQueue> Application::CreateCommandQueue(Micro
     return commandQueue;
 }
 
-Microsoft::WRL::ComPtr<IDXGISwapChain4> Application::CreateSwapChain(HWND hWnd, Microsoft::WRL::ComPtr<ID3D12CommandQueue> commandQueue, uint32_t width, uint32_t height, uint32_t bufferCount)
+Microsoft::WRL::ComPtr<IDXGISwapChain4> Renderer::CreateSwapChain(HWND hWnd, Microsoft::WRL::ComPtr<ID3D12CommandQueue> commandQueue, uint32_t width, uint32_t height, uint32_t bufferCount)
 {
     ComPtr<IDXGISwapChain4> dxgiSwapChain4;
     ComPtr<IDXGIFactory4> dxgiFactory4;
@@ -538,7 +469,7 @@ Microsoft::WRL::ComPtr<IDXGISwapChain4> Application::CreateSwapChain(HWND hWnd, 
 }
 
 
-Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> Application::CreateDescriptorHeap(Microsoft::WRL::ComPtr<ID3D12Device4> device, const D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors, UINT& descriptorSize)
+Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> Renderer::CreateDescriptorHeap(Microsoft::WRL::ComPtr<ID3D12Device4> device, const D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors, UINT& descriptorSize)
 {
     ComPtr<ID3D12DescriptorHeap> descriptorHeap;
 
@@ -557,7 +488,7 @@ Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> Application::CreateDescriptorHeap(M
     return descriptorHeap;
 }
 
-void Application::UpdateRenderTargetViews(Microsoft::WRL::ComPtr<ID3D12Device4> device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> rtvHeap, Microsoft::WRL::ComPtr<IDXGISwapChain3> swapChain, std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Application::m_frameCount>& renderTargets)
+void Renderer::UpdateRenderTargetViews(Microsoft::WRL::ComPtr<ID3D12Device4> device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> rtvHeap, Microsoft::WRL::ComPtr<IDXGISwapChain3> swapChain, std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Renderer::m_frameCount>& renderTargets)
 {
     auto rtvDescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
@@ -572,7 +503,7 @@ void Application::UpdateRenderTargetViews(Microsoft::WRL::ComPtr<ID3D12Device4> 
     }
 }
 
-bool Application::CheckTearingSupport()
+bool Renderer::CheckTearingSupport()
 {
 
     bool allowTearing = false;
@@ -598,7 +529,7 @@ bool Application::CheckTearingSupport()
     return allowTearing;
 }
 
-void Application::InitializeAssets()
+void Renderer::InitializeAssets()
 {
     /*
     - Create empty *root signature*
@@ -665,32 +596,19 @@ void Application::InitializeAssets()
         m_gui->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Grass.dds");
     }*/
     // Create the sceneObject
-    for (size_t i = 0; i < m_numObjects; i++)
-    {
-        auto constantBuffer = m_resourceHeap->CreateCBV();
-        constantBuffer->Initialize(m_device.Get());
-        auto texture = (i % 2) ? m_tiles : m_grass;
-        auto object = SceneObject(m_cube, texture, constantBuffer);
-        object.Initialize(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get());
-        object.SetPosition(i*2, i % 2, 0.0f);
-        m_objects.push_back(object);
-    }
+    
 
     CreateSampler();
-
-    UpdateDepthStencilView(m_dsv, m_dsvHeap);
 
     // Close the command list and execute it to begin the initial GPU setup.
     ThrowIfFailed(m_commandList->Close());
     ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
     m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 
-    InitializeGUI();
-
     CreateSyncObjects();
 }
 
-Microsoft::WRL::ComPtr<ID3D12RootSignature> Application::CreateRootSignature()
+Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRootSignature()
 {
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature;
 
@@ -789,7 +707,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Application::CreateRootSignature()
     return rootSignature;
 }
 
-void Application::CreateSyncObjects()
+void Renderer::CreateSyncObjects()
 {
     // Create synchronization objects
 
@@ -810,7 +728,7 @@ void Application::CreateSyncObjects()
 
 }
 
-void Application::UpdateDepthStencilView(Microsoft::WRL::ComPtr<ID3D12Resource>& dsv, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& dsvHeap)
+void Renderer::UpdateDepthStencilView(Microsoft::WRL::ComPtr<ID3D12Resource>& dsv, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& dsvHeap, UINT width, UINT height)
 {
     // Describe the depth stencil view
     D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
@@ -825,9 +743,6 @@ void Application::UpdateDepthStencilView(Microsoft::WRL::ComPtr<ID3D12Resource>&
     depthOptimizedClearValue.DepthStencil.Depth = 1.0f;
     depthOptimizedClearValue.DepthStencil.Stencil = 0;
     
-
-    auto width = m_window->GetClientWidth();
-    auto height = m_window->GetClientHeight();
     D3D12_RESOURCE_DESC dsDesc = CD3DX12_RESOURCE_DESC::Tex2D(
         DXGI_FORMAT_D32_FLOAT,  // Use established DS format
         width,  // Depth Stencil to encompass the whole screen (ensure to resize it alongside the screen.)
@@ -858,7 +773,7 @@ void Application::UpdateDepthStencilView(Microsoft::WRL::ComPtr<ID3D12Resource>&
     m_device->CreateDepthStencilView(dsv.Get(), &dsvDesc, dsvHeap->GetCPUDescriptorHandleForHeapStart());
 }
 
-void Application::CreateSampler()
+void Renderer::CreateSampler()
 {
     // Describe and create a sampler.
     D3D12_SAMPLER_DESC samplerDesc = {};
@@ -874,7 +789,7 @@ void Application::CreateSampler()
     m_device->CreateSampler(&samplerDesc, m_samplerHeap->GetCPUDescriptorHandleForHeapStart());
 }
 
-Microsoft::WRL::ComPtr<ID3D12PipelineState> Application::CreatePipelineStateObject(ID3DBlob* pVertexShaderBlob, ID3DBlob* pPixelShaderBlob)
+Microsoft::WRL::ComPtr<ID3D12PipelineState> Renderer::CreatePipelineStateObject(ID3DBlob* pVertexShaderBlob, ID3DBlob* pPixelShaderBlob)
 {
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState;
 
@@ -957,7 +872,7 @@ Microsoft::WRL::ComPtr<ID3D12PipelineState> Application::CreatePipelineStateObje
     return pipelineState;
 }
 
-void Application::InitializeGUI()
+void Renderer::InitializeGUI(HWND hWnd)
 {
 #if defined (_GUI)
 
@@ -971,7 +886,7 @@ void Application::InitializeGUI()
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
     // Setup Platform/Renderer backends
-    ImGui_ImplWin32_Init(m_window->GetHWND());
+    ImGui_ImplWin32_Init(hWnd);
     auto srv = m_resourceHeap->CreateSRV();
     ImGui_ImplDX12_Init(m_device.Get(), m_frameCount, DXGI_FORMAT_R8G8B8A8_UNORM,
         m_resourceHeap->GetHeap(),
@@ -982,7 +897,7 @@ void Application::InitializeGUI()
 #endif
 }
 
-void Application::UpdateGUI()
+void Renderer::UpdateGUI()
 {
 #if defined (_GUI)
     // Start new Dear ImGui frame
@@ -995,7 +910,7 @@ void Application::UpdateGUI()
 #endif
 }
 
-void Application::DestroyGUI()
+void Renderer::DestroyGUI()
 {
 #if defined (_GUI)
     ImGui_ImplDX12_Shutdown();
@@ -1004,7 +919,7 @@ void Application::DestroyGUI()
 #endif
 }
 
-void Application::RenderGUI(ID3D12GraphicsCommandList* commandList)
+void Renderer::RenderGUI(ID3D12GraphicsCommandList* commandList)
 {
 #if defined (_GUI)
     // render Dear ImGui
@@ -1018,7 +933,7 @@ void Application::RenderGUI(ID3D12GraphicsCommandList* commandList)
 #endif
 }
 
-void Application::MoveToNextFrame()
+void Renderer::MoveToNextFrame()
 {
     // Schedule a signal command in the queue
     // Store the fence value to set in the next frame's fence value
@@ -1040,7 +955,7 @@ void Application::MoveToNextFrame()
     m_fenceValues[m_frameIndex] = currentFenceValue + 1;
 }
 
-void Application::WaitForGpu()
+void Renderer::WaitForGpu()
 {
     // Schedule a signal command in the queue
     ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), m_fenceValues[m_frameIndex]));
@@ -1053,7 +968,7 @@ void Application::WaitForGpu()
 }
 
 
-void Application::PopulateCommandList()
+void Renderer::PopulateCommandList(std::map<std::string, SceneObject>& objects)
 {
     // Command list allocators can only be reset when the associated 
     // command lists have finished execution on the GPU; apps should use 
@@ -1100,9 +1015,9 @@ void Application::PopulateCommandList()
     // Update Model View Projection (MVP) Matrix according to camera position
     
     // Draw object
-    for (auto it = m_objects.begin(); it != m_objects.end(); it++)
+    for (auto object : objects)
     {
-        it->Draw(m_commandList.Get());
+        object.second.Draw(m_commandList.Get());
     }
     
 
