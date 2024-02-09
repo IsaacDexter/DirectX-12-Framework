@@ -7,7 +7,7 @@ m_vertexBufferView()
 {
 }
 
-void Primitive::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature)
+void Primitive::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature, const wchar_t* path)
 {
     CreateVertexBuffer(device, commandList);
     CreateIndexBuffer(device, commandList);

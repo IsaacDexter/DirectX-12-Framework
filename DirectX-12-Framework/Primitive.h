@@ -5,7 +5,7 @@ class Primitive
 {
 public:
 	Primitive();
-	void Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature);
+	void Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature, const wchar_t* path);
 	void Draw(ID3D12GraphicsCommandList* commandList);
 private:
 	void CreateVertexBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* commandList);

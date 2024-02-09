@@ -1,10 +1,12 @@
 #pragma once
 #include "stdafx.h"
 #include <unordered_map>
+#include <unordered_set>
 #include <queue>
 #include "Resource.h"
 #include "ConstantBuffer.h"
 #include "Texture.h"
+#include "Primitive.h"
 
 class ResourceHeap
 {
@@ -13,9 +15,10 @@ public:
     void Initialize(ID3D12Device* device, ID3D12PipelineState* pipelineState);
     
 
-    const std::shared_ptr<Texture> CreateSRV(ID3D12Device* device, ID3D12PipelineState* pipelineState, const wchar_t* path);
+    const std::shared_ptr<Texture> CreateTexture(ID3D12Device* device, ID3D12PipelineState* pipelineState, const wchar_t* path);
     const std::shared_ptr<Texture> ReserveSRV(ID3D12Device*);
     const std::shared_ptr<ConstantBuffer> CreateCBV();
+    const std::shared_ptr<Primitive> CreateModel(ID3D12Device* device, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature, const wchar_t* path);
     bool Remove(std::shared_ptr<Resource> resource);
 
     ID3D12DescriptorHeap* GetHeap()
@@ -50,6 +53,7 @@ protected:
     * I think contigous constant buffers is high priority, having a manager would let you iterate over all of them in one, which could be nice. Just Update the view and proj when needed. 
     */
 	std::unordered_map<std::shared_ptr<Resource>, UINT> m_resources;
+	std::unordered_set<std::shared_ptr<Primitive>> m_models;
     /**
     * Queue of indexes that have been intentionally freed
     * These are always written to over the end of the list as it eliminates the to check if array has been exceeded

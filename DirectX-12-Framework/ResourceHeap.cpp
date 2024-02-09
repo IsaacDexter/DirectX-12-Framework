@@ -5,6 +5,7 @@ ResourceHeap::ResourceHeap() :
 {
     m_freedOffsets = std::queue<UINT>();
     m_resources = std::unordered_map< std::shared_ptr<Resource>, UINT>();
+    m_models = std::unordered_set< std::shared_ptr<Primitive>>();
 };
 
 void ResourceHeap::Initialize(ID3D12Device* device, ID3D12PipelineState* pipelineState)
@@ -39,7 +40,7 @@ void ResourceHeap::Initialize(ID3D12Device* device, ID3D12PipelineState* pipelin
     m_load = true;
 
 }
-const std::shared_ptr<Texture> ResourceHeap::CreateSRV(ID3D12Device* device, ID3D12PipelineState* pipelineState, const wchar_t* path)
+const std::shared_ptr<Texture> ResourceHeap::CreateTexture(ID3D12Device* device, ID3D12PipelineState* pipelineState, const wchar_t* path)
 {
     if (!m_load)
     {
@@ -53,6 +54,7 @@ const std::shared_ptr<Texture> ResourceHeap::CreateSRV(ID3D12Device* device, ID3
     m_load = true;
     return resource;
 }
+
 const std::shared_ptr<Texture> ResourceHeap::ReserveSRV(ID3D12Device*)
 {
     UINT freeOffset = GetFreeIndex();
@@ -75,6 +77,25 @@ const std::shared_ptr<ConstantBuffer> ResourceHeap::CreateCBV()
     m_resources.emplace(resource, freeOffset);
     return resource;
 }
+const std::shared_ptr<Primitive> ResourceHeap::CreateModel(ID3D12Device* device, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature, const wchar_t* path)
+{
+
+    if (!m_load)
+    {
+        m_commandAllocator->Reset();
+        m_commandList->Reset(m_commandAllocator.Get(), pipelineState);
+    }
+
+    // Create the model
+    auto model = std::make_shared<Primitive>();
+    model->Initialize(device, m_commandList.Get(), pipelineState, rootSignature, path);
+    m_models.emplace(model);
+
+    m_load = true;
+    return model;
+
+}
+
 bool ResourceHeap::Remove(std::shared_ptr<Resource> resource)
 {
     // Check that such a resource is managed by this, and if so, solely by this, before deleting 

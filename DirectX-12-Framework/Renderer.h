@@ -93,11 +93,6 @@ private:
 
 #pragma endregion
 
-	std::shared_ptr<Primitive> m_cube;
-	std::shared_ptr<Texture> m_tiles;
-	std::shared_ptr<Texture> m_grass;
-	std::shared_ptr<Texture> m_sand;
-
 private:
 #pragma region Initialization
 

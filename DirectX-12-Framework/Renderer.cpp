@@ -130,12 +130,12 @@ void Renderer::Resize(UINT width, UINT height)
 
 std::shared_ptr<Texture> Renderer::CreateTexture(const wchar_t* path)
 {
-    return m_resourceHeap->CreateSRV(m_device.Get(), m_pipelineState.Get(), path);
+    return m_resourceHeap->CreateTexture(m_device.Get(), m_pipelineState.Get(), path);
 }
 
 std::shared_ptr<Primitive> Renderer::CreateModel(const wchar_t* path)
 {
-    return m_cube;
+    return m_resourceHeap->CreateModel(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get(), path);
 }
 
 std::shared_ptr<ConstantBuffer> Renderer::CreateConstantBuffer()
@@ -570,27 +570,7 @@ void Renderer::InitializeAssets()
     m_resourceHeap = std::make_unique<ResourceHeap>();
     m_resourceHeap->Initialize(m_device.Get(), m_pipelineState.Get());
 
-
-    // Create the model
-    m_cube = std::make_shared<Primitive>();
-    m_cube->Initialize(m_device.Get(), m_commandList.Get(), m_pipelineState.Get(), m_rootSignature.Get());
-
-    // Create the textures
-    //m_grass = m_resourceHeap->CreateSRV();
-    //m_grass->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Grass.dds");
-    //m_sand = m_resourceHeap->CreateSRV();
-    //m_sand->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Sand.dds");
-    // Reserve the Dear ImGui texture
-    /*{
-        CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart(), Descriptors::GUI, m_srvCbvHeapSize);
-        CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorHandle(m_srvCbvHeap->GetGPUDescriptorHandleForHeapStart(), Descriptors::GUI, m_srvCbvHeapSize);
-        UINT rootParameterIndex = RootParameterIndices::SRV;
-        m_gui = std::make_unique<Texture>(cpuDescriptorHandle, gpuDescriptorHandle, rootParameterIndex);
-        m_gui->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Grass.dds");
-    }*/
-    // Create the sceneObject
     
-
     CreateSampler();
 
     // Close the command list and execute it to begin the initial GPU setup.

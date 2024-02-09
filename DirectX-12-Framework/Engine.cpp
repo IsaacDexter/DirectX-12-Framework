@@ -15,10 +15,11 @@ void Engine::Initialize()
     m_camera = std::make_unique<Camera>(XMFLOAT3(0.0f, 0.0f, 3.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), m_window->GetAspectRatio());
     auto tiles = m_renderer->CreateTexture(L"Assets/Tiles.dds");
     auto grass = m_renderer->CreateTexture(L"Assets/Grass.dds");
+    auto cube = m_renderer->CreateModel(L"Assets/Cube.obj");
     for (UINT i = 0; i < m_numObjects; i++)
     {
         std::string name = "Object " + std::to_string(i);
-        auto object = SceneObject(m_renderer->CreateModel(L"Assets/Cube.obj"), (i % 2 == 0) ? tiles : grass, m_renderer->CreateConstantBuffer());
+        auto object = SceneObject(cube, (i % 2 == 0) ? tiles : grass, m_renderer->CreateConstantBuffer());
         object.SetPosition(i * 2, 0.0f, 0.0f);
         m_sceneObjects.try_emplace(name, object);
     }
@@ -106,6 +107,10 @@ void Engine::OnKeyDown(WPARAM wParam)
         break;
     case 'T':
         m_sceneObjects.at("Object 1").SetTexture(m_renderer->CreateTexture(L"Assets/Sand.dds"));
+        break;
+    case 'M':
+        m_sceneObjects.at("Object 0").SetModel(m_renderer->CreateModel(L"Assets/Cube.obj"));
+        break;
     default:
         break;
     }
