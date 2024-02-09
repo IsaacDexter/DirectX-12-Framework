@@ -19,10 +19,9 @@ void Engine::Initialize()
     auto cube = m_renderer->CreateModel(L"Assets/Cube.obj");
     for (UINT i = 0; i < m_numObjects; i++)
     {
-        std::string name = "Object " + std::to_string(i);
-        auto object = SceneObject(cube, (i % 2 == 0) ? tiles : grass, m_renderer->CreateConstantBuffer());
-        object.SetPosition(i * 2, 0.0f, 0.0f);
-        m_sceneObjects.try_emplace(name, object);
+        auto object = std::make_shared<SceneObject>(cube, (i % 2 == 0) ? tiles : grass, m_renderer->CreateConstantBuffer());
+        object->SetPosition(i * 2, 0.0f, 0.0f);
+        m_sceneObjects.push_back(object);
     }
 }
 
@@ -76,7 +75,7 @@ void Engine::Update()
 
     for (auto sceneObject : m_sceneObjects)
     {
-        sceneObject.second.Update(deltaTime, view, projection);
+        sceneObject->Update(deltaTime, view, projection);
     }
 }
 
@@ -107,18 +106,19 @@ void Engine::OnKeyDown(WPARAM wParam)
         }
         break;
     case 'T':
-        m_sceneObjects.at("Object 1").SetTexture(m_renderer->CreateTexture(L"Assets/Sand.dds"));
+        if (m_selectedObject)
+            m_selectedObject->SetTexture(m_renderer->CreateTexture(L"Assets/Sand.dds"));
         break;
     case 'M':
-        m_sceneObjects.at("Object 0").SetModel(m_renderer->CreateModel(L"Assets/Pyramid.obj"));
+        if (m_selectedObject)
+            m_selectedObject->SetModel(m_renderer->CreateModel(L"Assets/Pyramid.obj"));
         break;
     case 'O':
     {
         static int count = 1;
-        std::string name = "NewObject " + std::to_string(count);
-        auto object = SceneObject(m_renderer->CreateModel(L"Assets/Pyramid.obj"), m_renderer->CreateTexture(L"Assets/Sand.dds"), m_renderer->CreateConstantBuffer());
-        object.SetPosition(-count, -count, -count);
-        m_sceneObjects.try_emplace(name, object);
+        auto object = std::make_shared<SceneObject>(m_renderer->CreateModel(L"Assets/Pyramid.obj"), m_renderer->CreateTexture(L"Assets/Sand.dds"), m_renderer->CreateConstantBuffer());
+        object->SetPosition(-count, -count, -count);
+        m_sceneObjects.push_back(object);
         count++;
     }
         break;
@@ -151,8 +151,7 @@ void Engine::OnMouseMove(int x, int y, WPARAM wParam)
     break;
     case MK_RBUTTON:
     {
-        Pick(m_camera->GetPosition(), CreateRay(x, y),  nullptr);
-        
+        m_selectedObject = Pick(m_camera->GetPosition(), CreateRay(x, y));
     }
     default:
     {
@@ -222,7 +221,7 @@ XMFLOAT3 Engine::CreateRay(int x, int y)
     return ray;
 }
 
-bool Engine::Pick(const XMFLOAT3& rayOrigin, const XMFLOAT3& rayDirection, SceneObject* selectedObject)
+std::shared_ptr<SceneObject> Engine::Pick(const XMFLOAT3& rayOrigin, const XMFLOAT3& rayDirection)
 {
     char buffer[500];
     sprintf_s(buffer, 500, "Direction: (%f, %f, %f)\nOrigin: (%f, %f, %f)\n", rayDirection.x, rayDirection.y, rayDirection.z, rayOrigin.x, rayOrigin.y, rayOrigin.z);
@@ -233,14 +232,12 @@ bool Engine::Pick(const XMFLOAT3& rayOrigin, const XMFLOAT3& rayDirection, Scene
     for (auto object : m_sceneObjects)
     {
         float dist;
-        if (object.second.GetAABB().Intersects(XMLoadFloat3(&rayOrigin), XMLoadFloat3(&rayDirection), dist))
+        if (object->GetAABB().Intersects(XMLoadFloat3(&rayOrigin), XMLoadFloat3(&rayDirection), dist))
         {
-            selectedObject = &object.second;
-            OutputDebugStringA(("Selected Object: " + object.first + "\n").c_str());
-            return true;
+            return object;
         }
     }
 
-    return false;
+    return nullptr;
 }
 

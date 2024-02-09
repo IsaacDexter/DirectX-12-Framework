@@ -1,7 +1,7 @@
 #pragma once
 #include "stdafx.h"
 #include "SceneObject.h"
-#include <map>
+#include <vector>
 #include "Camera.h"
 #include <string>
 #include "Window.h"
@@ -19,7 +19,7 @@ public:
 	void OnMouseMove(int x, int y, WPARAM wParam);
 	void OnResize();
 protected:
-	std::map<std::string, SceneObject> m_sceneObjects;
+	std::vector<std::shared_ptr<SceneObject>> m_sceneObjects;
 	std::unique_ptr<Camera> m_camera;
 
 	std::unique_ptr<Renderer> m_renderer;
@@ -31,7 +31,9 @@ protected:
 
 	void CreateObject();
 
+	std::shared_ptr<SceneObject> m_selectedObject = nullptr;
+
 	DirectX::XMFLOAT3 CreateRay(int x, int y);
-	bool Pick(const DirectX::XMFLOAT3& rayOrigin, const DirectX::XMFLOAT3& rayDirection, SceneObject* object);
+	std::shared_ptr<SceneObject> Pick(const DirectX::XMFLOAT3& rayOrigin, const DirectX::XMFLOAT3& rayDirection);
 };
 

@@ -31,7 +31,7 @@ public:
 	*/
 	void Initialize(HWND hWnd, UINT width, UINT height);
 	void Update();
-	void Render(std::map<std::string, SceneObject>& objects);
+	void Render(std::vector<std::shared_ptr<SceneObject>>& objects);
 	void Destroy();
 	void Resize(UINT width, UINT height);
 
@@ -183,7 +183,7 @@ private:
 
 #pragma region Rendering
 
-	void PopulateCommandList(std::map<std::string, SceneObject>& objects);
+	void PopulateCommandList(std::vector<std::shared_ptr<SceneObject>>& objects);
 
 #pragma endregion
 };

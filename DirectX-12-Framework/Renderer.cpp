@@ -37,7 +37,7 @@ void Renderer::Update()
 
 }
 
-void Renderer::Render(std::map<std::string, SceneObject>& objects)
+void Renderer::Render(std::vector<std::shared_ptr<SceneObject>>& objects)
 {/*
     - Populate command list
 	    - Reset command list allocator
@@ -941,7 +941,7 @@ void Renderer::WaitForGpu()
 }
 
 
-void Renderer::PopulateCommandList(std::map<std::string, SceneObject>& objects)
+void Renderer::PopulateCommandList(std::vector<std::shared_ptr<SceneObject>>& objects)
 {
     // Command list allocators can only be reset when the associated 
     // command lists have finished execution on the GPU; apps should use 
@@ -990,7 +990,7 @@ void Renderer::PopulateCommandList(std::map<std::string, SceneObject>& objects)
     // Draw object
     for (auto object : objects)
     {
-        object.second.Draw(m_commandList.Get());
+        object->Draw(m_commandList.Get());
     }
     
 
