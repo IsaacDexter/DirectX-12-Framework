@@ -132,9 +132,34 @@ void Engine::OnKeyUp(WPARAM wParam)
     m_camera->OnKeyUp(wParam);
 }
 
-void Engine::OnMouseMove(int dX, int dY, WPARAM wParam)
+void Engine::OnMouseMove(int x, int y, WPARAM wParam)
 {
-    m_camera->OnMouseMove(dX, dY, wParam);
+    static auto lastX = x;
+    static auto lastY = y;
+    auto dX = x - lastX;
+    auto dY = y - lastY;
+    lastX = x;
+    lastY = y;
+
+    switch (wParam)
+    {
+    case MK_LBUTTON:
+    {
+        m_camera->OnMouseMove(dX, dY, wParam);
+    }
+    break;
+    case MK_RBUTTON:
+    {
+        Pick(CreateRay(x, y), m_camera->GetPosition(), nullptr);
+        
+    }
+    default:
+    {
+        break;
+    }
+    }
+
+    
 }
 
 void Engine::OnResize()
@@ -153,3 +178,92 @@ void Engine::CreateObject()
 {
     
 }
+
+XMFLOAT3 Engine::CreateRay(int x, int y)
+{
+    XMMATRIX proj = m_camera->GetProj();
+    XMMATRIX view = m_camera->GetView();
+    XMMATRIX world = XMMatrixIdentity();
+
+    UINT width = m_window->GetClientWidth();
+    UINT height = m_window->GetClientHeight();
+
+    XMVECTOR origin = XMVector3Unproject(XMVectorSet(x, y, 0, 0),
+        0,
+        0,
+        width,
+        height,
+        0,
+        1,
+        proj,
+        view,
+        world
+    );
+
+    XMVECTOR dest = XMVector3Unproject(XMVectorSet(x, y, 1, 0),
+        0,
+        0,
+        width,
+        height,
+        0,
+        1,
+        proj,
+        view,
+        world
+    );
+
+    XMVECTOR direction = dest - origin;
+    direction = XMVector3Normalize(direction);
+    XMFLOAT3 ray;
+    XMStoreFloat3(&ray, direction);
+
+    char buffer[500];
+    sprintf_s(buffer, 500, "X: %f, Y: %f, Z: %f.\n", ray.x, ray.y, ray.z);
+    OutputDebugStringA(buffer);
+    return ray;
+}
+
+bool Engine::Pick(const XMFLOAT3 rayDirection, const XMFLOAT3& rayOrigin, SceneObject* selectedObject)
+{
+    for (auto object : m_sceneObjects)
+    {
+        XMFLOAT3 size = XMFLOAT3(1.0f, 1.0f, 1.0f);
+        XMFLOAT3 position = object.second.GetPosition();
+
+        float tMin = (position.x - size.x / 2.0f - rayOrigin.x) / rayDirection.x;
+        float tMax = (position.x + size.x / 2.0f - rayOrigin.x) / rayDirection.x;
+
+        if (tMin > tMax) std::swap(tMin, tMax);
+
+        float tyMin = (position.y - size.y / 2.0f - rayOrigin.y) / rayDirection.y;
+        float tyMax = (position.y + size.y / 2.0f - rayOrigin.y) / rayDirection.y;
+
+        if (tyMin > tyMax) std::swap(tyMin, tyMax);
+
+        if ((tMin > tyMax) || (tyMin > tMax))
+            return false;
+
+        if (tyMin > tMin)
+            tMin = tyMin;
+
+        if (tyMax < tMax)
+            tMax = tyMax;
+
+        float tzMin = (position.z - size.z / 2.0f - rayOrigin.z) / rayDirection.z;
+        float tzMax = (position.z + size.z / 2.0f - rayOrigin.z) / rayDirection.z;
+
+        if (tzMin > tzMax) std::swap(tzMin, tzMax);
+
+        if ((tMin > tzMax) || (tzMin > tMax))
+            continue;
+
+        {
+            selectedObject = &object.second;
+            OutputDebugStringA(("Selected object: " + object.first + ".\n").c_str());
+            return true;
+        }
+    }
+
+    return false;
+}
+

@@ -16,7 +16,7 @@ public:
 	void Render();
 	void OnKeyDown(WPARAM wParam);
 	void OnKeyUp(WPARAM wParam);
-	void OnMouseMove(int dX, int dY, WPARAM wParam);
+	void OnMouseMove(int x, int y, WPARAM wParam);
 	void OnResize();
 protected:
 	std::map<std::string, SceneObject> m_sceneObjects;
@@ -30,5 +30,8 @@ protected:
 	UINT m_numObjects = 20;
 
 	void CreateObject();
+
+	DirectX::XMFLOAT3 CreateRay(int x, int y);
+	bool Pick(const DirectX::XMFLOAT3 rayDirection, const DirectX::XMFLOAT3& rayOrigin, SceneObject* object);
 };
 

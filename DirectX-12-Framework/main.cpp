@@ -65,18 +65,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			g_application->OnKeyUp(wParam);
 			break;
 		}
+		case WM_LBUTTONDOWN:
+		case WM_RBUTTONDOWN:
+		case WM_MBUTTONDOWN:
 		case WM_MOUSEMOVE:
 		{
-			static auto lastX = GET_X_LPARAM(lParam);
-			static auto lastY = GET_Y_LPARAM(lParam);
-			auto x = GET_X_LPARAM(lParam);
-			auto y = GET_Y_LPARAM(lParam);
-			auto dX = x - lastX;
-			auto dY = y - lastY;
-			g_application->OnMouseMove(dX, dY, wParam);
+			g_application->OnMouseMove(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), wParam);
 			
-			lastX = x;
-			lastY = y;
 			break;
 		}
 		case WM_DESTROY:

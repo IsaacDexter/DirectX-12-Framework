@@ -63,19 +63,9 @@ public:
     
     void OnMouseMove(int dX, int dY, WPARAM wParam)
     {
-        switch (wParam)
-        {
-        case MK_LBUTTON:
-        {
-            m_dX += dX;
-            m_dY += dY;
-        }
-        break;
-        default:
-        {
-            break;
-        }
-        }
+        m_dX += dX;
+        m_dY += dY;
+
     }
 
     void Update(const float& deltaTime);
