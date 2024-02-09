@@ -11,7 +11,7 @@
 
 #include "Camera.h"
 #include "Controls.h"
-#include "Model.h"
+#include "Primitive.h"
 #include "Texture.h"
 #include "ConstantBuffer.h"
 #include "ResourceHeap.h"
@@ -36,7 +36,7 @@ public:
 	void Resize(UINT width, UINT height);
 
 	std::shared_ptr<Texture> CreateTexture(const wchar_t* path);
-	std::shared_ptr<Model> CreateModel(const wchar_t* path);
+	std::shared_ptr<Primitive> CreateModel(const wchar_t* path);
 	std::shared_ptr<ConstantBuffer> CreateConstantBuffer();
 
 private:
@@ -93,7 +93,7 @@ private:
 
 #pragma endregion
 
-	std::shared_ptr<Model> m_cube;
+	std::shared_ptr<Primitive> m_cube;
 	std::shared_ptr<Texture> m_tiles;
 	std::shared_ptr<Texture> m_grass;
 	std::shared_ptr<Texture> m_sand;

@@ -1,25 +1,25 @@
-#include "Model.h"
+#include "Primitive.h"
 
-Model::Model() :
+Primitive::Primitive() :
 m_numIndices(0),
 m_indexBufferView(),
 m_vertexBufferView()
 {
 }
 
-void Model::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature)
+void Primitive::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature)
 {
     CreateVertexBuffer(device, commandList);
     CreateIndexBuffer(device, commandList);
     CreateBundle(device, pipelineState, rootSignature);
 }
 
-void Model::Draw(ID3D12GraphicsCommandList* commandList)
+void Primitive::Draw(ID3D12GraphicsCommandList* commandList)
 {
     commandList->ExecuteBundle(m_bundle.Get());
 }
 
-void Model::CreateVertexBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* commandList)
+void Primitive::CreateVertexBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* commandList)
 {
     // Define the geometry for a cube.
     Vertex vertices[] =
@@ -144,7 +144,7 @@ void Model::CreateVertexBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* 
     }
 }
 
-void Model::CreateIndexBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* commandList)
+void Primitive::CreateIndexBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* commandList)
 // Create index buffer
 {
     DWORD indices[] =
@@ -260,7 +260,7 @@ void Model::CreateIndexBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* c
     }
 }
 
-void Model::CreateBundle(ID3D12Device* device, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature)
+void Primitive::CreateBundle(ID3D12Device* device, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature)
 {
     // Create bundle allocator
     ThrowIfFailed(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_BUNDLE, IID_PPV_ARGS(&m_bundleAllocator)), "Couldn't create command bundle.\n");

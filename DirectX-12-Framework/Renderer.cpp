@@ -1,4 +1,4 @@
-#include "Application.h"
+#include "Renderer.h"
 #include "Window.h"
 
 using namespace Microsoft::WRL;
@@ -130,10 +130,10 @@ void Renderer::Resize(UINT width, UINT height)
 
 std::shared_ptr<Texture> Renderer::CreateTexture(const wchar_t* path)
 {
-    return m_tiles;
+    return m_resourceHeap->CreateSRV(m_device.Get(), m_pipelineState.Get(), path);
 }
 
-std::shared_ptr<Model> Renderer::CreateModel(const wchar_t* path)
+std::shared_ptr<Primitive> Renderer::CreateModel(const wchar_t* path)
 {
     return m_cube;
 }
@@ -572,11 +572,10 @@ void Renderer::InitializeAssets()
 
 
     // Create the model
-    m_cube = std::make_shared<Model>();
+    m_cube = std::make_shared<Primitive>();
     m_cube->Initialize(m_device.Get(), m_commandList.Get(), m_pipelineState.Get(), m_rootSignature.Get());
 
     // Create the textures
-    m_tiles = m_resourceHeap->CreateSRV(m_device.Get());
     //m_grass = m_resourceHeap->CreateSRV();
     //m_grass->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Grass.dds");
     //m_sand = m_resourceHeap->CreateSRV();
@@ -881,7 +880,7 @@ void Renderer::InitializeGUI(HWND hWnd)
 
     // Setup Platform/Renderer backends
     ImGui_ImplWin32_Init(hWnd);
-    auto srv = m_resourceHeap->CreateSRV(m_device.Get());
+    auto srv = m_resourceHeap->ReserveSRV(m_device.Get());
     ImGui_ImplDX12_Init(m_device.Get(), m_frameCount, DXGI_FORMAT_R8G8B8A8_UNORM,
         m_resourceHeap->GetHeap(),
         // You'll need to designate a descriptor from your descriptor heap for Dear ImGui to use internally for its font texture's SRV
@@ -947,9 +946,6 @@ void Renderer::MoveToNextFrame()
 
     // Set the next frame's fence value
     m_fenceValues[m_frameIndex] = currentFenceValue + 1;
-    char buffer[500];
-    sprintf_s(buffer, 500, "Current Fence Value: %lld\n", m_fenceValues[m_frameIndex]);
-    OutputDebugStringA(buffer);
 }
 
 void Renderer::WaitForGpu()

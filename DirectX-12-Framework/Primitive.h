@@ -1,10 +1,10 @@
 #pragma once
 #include "stdafx.h"
 
-class Model
+class Primitive
 {
 public:
-	Model();
+	Primitive();
 	void Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature);
 	void Draw(ID3D12GraphicsCommandList* commandList);
 private:

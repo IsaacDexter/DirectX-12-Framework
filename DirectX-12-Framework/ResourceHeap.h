@@ -13,7 +13,8 @@ public:
     void Initialize(ID3D12Device* device, ID3D12PipelineState* pipelineState);
     
 
-    const std::shared_ptr<Texture> CreateSRV(ID3D12Device* device);
+    const std::shared_ptr<Texture> CreateSRV(ID3D12Device* device, ID3D12PipelineState* pipelineState, const wchar_t* path);
+    const std::shared_ptr<Texture> ReserveSRV(ID3D12Device*);
     const std::shared_ptr<ConstantBuffer> CreateCBV();
     bool Remove(std::shared_ptr<Resource> resource);
 
@@ -22,19 +23,8 @@ public:
         return m_heap.Get();
     }
 
-    bool Load(ID3D12CommandQueue* commandQueue)
-    {
-        bool load = m_load;
-        if (load)
-        {
-            m_load = false;
-            m_commandList->Close();
-
-            ID3D12CommandList* loadCommandLists[] = { m_commandList.Get()};
-            commandQueue->ExecuteCommandLists(_countof(loadCommandLists), loadCommandLists);
-        }
-        return load;
-    }
+    bool Load(ID3D12CommandQueue* commandQueue);
+    
 
     enum RootParameterIndices
     {

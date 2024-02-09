@@ -1,14 +1,14 @@
 #pragma once
 #include "stdafx.h"
 
-class Model;
+class Primitive;
 class Texture;
 class ConstantBuffer;
 
 class SceneObject
 {
 public:
-	SceneObject(std::shared_ptr<Model> model, std::shared_ptr<Texture> texture, std::shared_ptr<ConstantBuffer> constantBuffer);
+	SceneObject(std::shared_ptr<Primitive> model, std::shared_ptr<Texture> texture, std::shared_ptr<ConstantBuffer> constantBuffer);
 	virtual void Initialize();
 	virtual void Update(const float& deltaTime, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);
 	void Draw(ID3D12GraphicsCommandList* commandList);
@@ -37,7 +37,7 @@ public:
 protected:
 	DirectX::XMFLOAT3 m_position;
 
-	std::shared_ptr<Model> m_model;
+	std::shared_ptr<Primitive> m_model;
 	std::shared_ptr<Texture> m_texture;
 	std::shared_ptr<ConstantBuffer> m_constantBuffer;
 

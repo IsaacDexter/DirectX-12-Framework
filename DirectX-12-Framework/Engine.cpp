@@ -1,4 +1,4 @@
-#include "Scene.h"
+#include "Engine.h"
 using namespace DirectX;
 
 Engine::Engine(HINSTANCE hInstance) :
@@ -13,10 +13,12 @@ Engine::Engine(HINSTANCE hInstance) :
 void Engine::Initialize()
 {
     m_camera = std::make_unique<Camera>(XMFLOAT3(0.0f, 0.0f, 3.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), m_window->GetAspectRatio());
+    auto tiles = m_renderer->CreateTexture(L"Assets/Tiles.dds");
+    auto grass = m_renderer->CreateTexture(L"Assets/Grass.dds");
     for (UINT i = 0; i < m_numObjects; i++)
     {
         std::string name = "Object " + std::to_string(i);
-        auto object = SceneObject(m_renderer->CreateModel(L"Assets/Cube.obj"), m_renderer->CreateTexture(L"Assets/Tiles.dds"), m_renderer->CreateConstantBuffer());
+        auto object = SceneObject(m_renderer->CreateModel(L"Assets/Cube.obj"), (i % 2 == 0) ? tiles : grass, m_renderer->CreateConstantBuffer());
         object.SetPosition(i * 2, 0.0f, 0.0f);
         m_sceneObjects.try_emplace(name, object);
     }
@@ -102,6 +104,8 @@ void Engine::OnKeyDown(WPARAM wParam)
         m_window->SetFullscreen();
         }
         break;
+    case 'T':
+        m_renderer->CreateTexture(L"Assets/Tiles.dds");
     default:
         break;
     }

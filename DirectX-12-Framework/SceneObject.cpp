@@ -1,12 +1,12 @@
 #include "SceneObject.h"
-#include "Model.h"
+#include "Primitive.h"
 #include "Texture.h"
 #include "ConstantBuffer.h"
 
 using namespace DirectX;
 using namespace Microsoft::WRL;
 
-SceneObject::SceneObject(std::shared_ptr<Model> model, std::shared_ptr<Texture> texture, std::shared_ptr<ConstantBuffer> constantBuffer) :
+SceneObject::SceneObject(std::shared_ptr<Primitive> model, std::shared_ptr<Texture> texture, std::shared_ptr<ConstantBuffer> constantBuffer) :
     m_model(model),
     m_texture(texture),
     m_constantBuffer(constantBuffer),

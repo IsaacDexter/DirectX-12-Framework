@@ -36,8 +36,24 @@ void ResourceHeap::Initialize(ID3D12Device* device, ID3D12PipelineState* pipelin
         IID_PPV_ARGS(&m_commandList)
     ), "Failed to create command list.\n");
 
+    m_load = true;
+
 }
-const std::shared_ptr<Texture> ResourceHeap::CreateSRV(ID3D12Device* device)
+const std::shared_ptr<Texture> ResourceHeap::CreateSRV(ID3D12Device* device, ID3D12PipelineState* pipelineState, const wchar_t* path)
+{
+    if (!m_load)
+    {
+        m_commandAllocator->Reset();
+        m_commandList->Reset(m_commandAllocator.Get(), pipelineState);
+    }
+
+    auto resource = ReserveSRV(device);
+    resource->Initialize(device, m_commandList.Get(), path);
+
+    m_load = true;
+    return resource;
+}
+const std::shared_ptr<Texture> ResourceHeap::ReserveSRV(ID3D12Device*)
 {
     UINT freeOffset = GetFreeIndex();
 
@@ -46,9 +62,6 @@ const std::shared_ptr<Texture> ResourceHeap::CreateSRV(ID3D12Device* device)
     UINT rootParameterIndex = RootParameterIndices::SRV;
     auto resource = std::make_shared<Texture>(cpuDescriptorHandle, gpuDescriptorHandle, rootParameterIndex);
     m_resources.emplace(resource, freeOffset);
-    resource->Initialize(device, m_commandList.Get(), L"Assets/Tiles.dds");
-
-    m_load = true;
     return resource;
 }
 const std::shared_ptr<ConstantBuffer> ResourceHeap::CreateCBV()
@@ -77,6 +90,20 @@ bool ResourceHeap::Remove(std::shared_ptr<Resource> resource)
     }
     return false;
 }
+bool ResourceHeap::Load(ID3D12CommandQueue* commandQueue)
+{
+    bool load = m_load;
+    if (load)
+    {
+        m_load = false;
+        m_commandList->Close();
+
+        ID3D12CommandList* loadCommandLists[] = { m_commandList.Get() };
+        commandQueue->ExecuteCommandLists(_countof(loadCommandLists), loadCommandLists);
+    }
+    return load;
+}
+
 const UINT ResourceHeap::GetFreeIndex()
 {
     // If no CBVs have been freed

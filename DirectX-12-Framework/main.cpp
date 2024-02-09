@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "Scene.h"
+#include "Engine.h"
 #include "Window.h"
 // For mouse input helpers
 #include <windowsx.h>
