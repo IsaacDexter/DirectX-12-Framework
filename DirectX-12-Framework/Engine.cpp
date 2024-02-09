@@ -109,7 +109,17 @@ void Engine::OnKeyDown(WPARAM wParam)
         m_sceneObjects.at("Object 1").SetTexture(m_renderer->CreateTexture(L"Assets/Sand.dds"));
         break;
     case 'M':
-        m_sceneObjects.at("Object 0").SetModel(m_renderer->CreateModel(L"Assets/Cube.obj"));
+        m_sceneObjects.at("Object 0").SetModel(m_renderer->CreateModel(L"Assets/Pyramid.obj"));
+        break;
+    case 'O':
+    {
+        static int count = 1;
+        std::string name = "NewObject " + std::to_string(count);
+        auto object = SceneObject(m_renderer->CreateModel(L"Assets/Pyramid.obj"), m_renderer->CreateTexture(L"Assets/Sand.dds"), m_renderer->CreateConstantBuffer());
+        object.SetPosition(-count, -count, -count);
+        m_sceneObjects.try_emplace(name, object);
+        count++;
+    }
         break;
     default:
         break;

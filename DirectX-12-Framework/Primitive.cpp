@@ -1,7 +1,6 @@
 #include "Primitive.h"
 
 Primitive::Primitive() :
-m_numIndices(0),
 m_indexBufferView(),
 m_vertexBufferView()
 {
@@ -9,6 +8,7 @@ m_vertexBufferView()
 
 void Primitive::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature, const wchar_t* path)
 {
+    LoadModel(path);
     CreateVertexBuffer(device, commandList);
     CreateIndexBuffer(device, commandList);
     CreateBundle(device, pipelineState, rootSignature);
@@ -19,49 +19,109 @@ void Primitive::Draw(ID3D12GraphicsCommandList* commandList)
     commandList->ExecuteBundle(m_bundle.Get());
 }
 
+void Primitive::LoadModel(const wchar_t* path)
+{
+    if (path == L"Assets/Cube.obj")
+    {
+        // Define the geometry for a cube.
+        m_vertices =
+        {
+            // front face
+            {{ -0.5f,  0.5f, -0.5f}, {0.0f, 0.0f }},
+            {{  0.5f, -0.5f, -0.5f}, {1.0f, 1.0f }},
+            {{ -0.5f, -0.5f, -0.5f}, {0.0f, 1.0f }},
+            {{  0.5f,  0.5f, -0.5f}, {1.0f, 0.0f }},
+
+            // right side face
+            {{  0.5f, -0.5f, -0.5f}, {0.0f, 1.0f }},
+            {{  0.5f,  0.5f,  0.5f}, {1.0f, 0.0f }},
+            {{  0.5f, -0.5f,  0.5f}, {1.0f, 1.0f }},
+            {{  0.5f,  0.5f, -0.5f}, {0.0f, 0.0f }},
+
+            // left side face
+            {{ -0.5f, 0.5f, 0.5f}, { 0.0f, 0.0f }},
+            { { -0.5f, -0.5f, -0.5f}, {1.0f, 1.0f } },
+            { { -0.5f, -0.5f,  0.5f}, {0.0f, 1.0f } },
+            { { -0.5f,  0.5f, -0.5f}, {1.0f, 0.0f } },
+
+            // back face
+            { {  0.5f,  0.5f,  0.5f}, {0.0f, 0.0f } },
+            { { -0.5f, -0.5f,  0.5f}, {1.0f, 1.0f } },
+            { {  0.5f, -0.5f,  0.5f}, {0.0f, 1.0f } },
+            { { -0.5f,  0.5f,  0.5f}, {1.0f, 0.0f } },
+
+            // top face
+            { { -0.5f,  0.5f, -0.5f}, {0.0f, 1.0f } },
+            { {  0.5f,  0.5f,  0.5f}, {1.0f, 0.0f } },
+            { {  0.5f,  0.5f, -0.5f}, {1.0f, 1.0f } },
+            { { -0.5f,  0.5f,  0.5f}, {0.0f, 0.0f } },
+
+            // bottom face
+            { {  0.5f, -0.5f,  0.5f}, {0.0f, 0.0f } },
+            { { -0.5f, -0.5f, -0.5f}, {1.0f, 1.0f } },
+            { {  0.5f, -0.5f, -0.5f}, {0.0f, 1.0f } },
+            { { -0.5f, -0.5f,  0.5f}, {1.0f, 0.0f } }
+        };
+
+        m_indices =
+        {
+            // front face
+            0, 1, 2, // first triangle
+            0, 3, 1, // second triangle
+
+            // left face
+            4, 5, 6, // first triangle
+            4, 7, 5, // second triangle
+
+            // right face
+            8, 9, 10, // first triangle
+            8, 11, 9, // second triangle
+
+            // back face
+            12, 13, 14, // first triangle
+            12, 15, 13, // second triangle
+
+            // top face
+            16, 17, 18, // first triangle
+            16, 19, 17, // second triangle
+
+            // bottom face
+            20, 21, 22, // first triangle
+            20, 23, 21, // second triangle
+        };
+    }
+    else
+    {
+        m_vertices = 
+        {
+            { {0.5f, -0.5f, 0.5f}, {1.0f, 0.0f} },
+            { {0.5f, -0.5f, -0.5f}, { 0.0f, 0.0f} },
+            { {-0.5f, -0.5f, -0.5f}, { 1.0f, 0.0f} },
+            { {-0.5f, -0.5f, 0.5f}, { 0.0f, 0.0f} },
+            { {0.0f, 0.5f, 0.0f}, { 0.5f, 1.0f} },
+        };
+
+        m_indices =
+        {
+            1,4,0,
+            2,4,1,
+            3,4,2,
+            0,4,3,
+            1,0,3,
+            3,2,1
+        };
+    }
+
+
+    m_verticesSize = m_vertices.size() * sizeof(Vertex);
+    m_indicesCount = m_indices.size();
+    m_indicesSize = m_indicesCount * sizeof(Index);
+}
+
 void Primitive::CreateVertexBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* commandList)
 {
-    // Define the geometry for a cube.
-    Vertex vertices[] =
-    {
-        // front face
-        {{ -0.5f,  0.5f, -0.5f}, {0.0f, 0.0f }},
-        {{  0.5f, -0.5f, -0.5f}, {1.0f, 1.0f }},
-        {{ -0.5f, -0.5f, -0.5f}, {0.0f, 1.0f }},
-        {{  0.5f,  0.5f, -0.5f}, {1.0f, 0.0f }},
+    
 
-        // right side face
-        {{  0.5f, -0.5f, -0.5f}, {0.0f, 1.0f }},
-        {{  0.5f,  0.5f,  0.5f}, {1.0f, 0.0f }},
-        {{  0.5f, -0.5f,  0.5f}, {1.0f, 1.0f }},
-        {{  0.5f,  0.5f, -0.5f}, {0.0f, 0.0f }},
-
-        // left side face
-        {{ -0.5f, 0.5f, 0.5f}, { 0.0f, 0.0f }},
-        { { -0.5f, -0.5f, -0.5f}, {1.0f, 1.0f } },
-        { { -0.5f, -0.5f,  0.5f}, {0.0f, 1.0f } },
-        { { -0.5f,  0.5f, -0.5f}, {1.0f, 0.0f } },
-
-        // back face
-        { {  0.5f,  0.5f,  0.5f}, {0.0f, 0.0f } },
-        { { -0.5f, -0.5f,  0.5f}, {1.0f, 1.0f } },
-        { {  0.5f, -0.5f,  0.5f}, {0.0f, 1.0f } },
-        { { -0.5f,  0.5f,  0.5f}, {1.0f, 0.0f } },
-
-        // top face
-        { { -0.5f,  0.5f, -0.5f}, {0.0f, 1.0f } },
-        { {  0.5f,  0.5f,  0.5f}, {1.0f, 0.0f } },
-        { {  0.5f,  0.5f, -0.5f}, {1.0f, 1.0f } },
-        { { -0.5f,  0.5f,  0.5f}, {0.0f, 0.0f } },
-
-        // bottom face
-        { {  0.5f, -0.5f,  0.5f}, {0.0f, 0.0f } },
-        { { -0.5f, -0.5f, -0.5f}, {1.0f, 1.0f } },
-        { {  0.5f, -0.5f, -0.5f}, {0.0f, 1.0f } },
-        { { -0.5f, -0.5f,  0.5f}, {1.0f, 0.0f } }
-    };
-
-    const UINT vbSize = sizeof(vertices);
 
     // Create the vertex buffer in an implicit copy heap,
     // which we will copy to from an upload heap to upload to the GPU
@@ -69,7 +129,7 @@ void Primitive::CreateVertexBuffer(ID3D12Device* device, ID3D12GraphicsCommandLi
         // Create a default heap
         CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_DEFAULT);
         // Create a buffer large enough to encompass the vertex data
-        CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(vbSize);
+        CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(m_verticesSize);
 
 
         // Create the vertex buffer as a committed resource and an implicit heap big enough to contain it, and commit the resource to the heap.
@@ -91,7 +151,7 @@ void Primitive::CreateVertexBuffer(ID3D12Device* device, ID3D12GraphicsCommandLi
         // Create an upload heap to upload the GPU Vertex Buffer heap
         CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
         // Create a buffer large enough to encompass the vertex data
-        auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(vbSize);
+        auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(m_verticesSize);
 
 
         // Create the vertex buffer as a committed resource and an implicit heap big enough to contain it, and commit the resource to the heap.
@@ -108,9 +168,9 @@ void Primitive::CreateVertexBuffer(ID3D12Device* device, ID3D12GraphicsCommandLi
 
     // Store vertex buffer in upload heap
     D3D12_SUBRESOURCE_DATA vertexData = {};
-    vertexData.pData = reinterpret_cast<void**>(vertices); // Pointer to the vertex array
-    vertexData.RowPitch = vbSize;     // Physical size of vertex data
-    vertexData.SlicePitch = vbSize;
+    vertexData.pData = reinterpret_cast<void**>(m_vertices.data()); // Pointer to the vertex array
+    vertexData.RowPitch = m_verticesSize;     // Physical size of vertex data
+    vertexData.SlicePitch = m_verticesSize;
 
 
     // Queue the copying of the Vertex Buffer (VB) intermediary upload heap to the VB resource.
@@ -139,53 +199,21 @@ void Primitive::CreateVertexBuffer(ID3D12Device* device, ID3D12GraphicsCommandLi
     // create vertex buffer view, used to tell input assembler where vertices are stored in GPU memory
     {
         m_vertexBufferView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress(); // specify D3D12_GPU_VIRTUAL_ADDRESS that identifies buffer address
-        m_vertexBufferView.SizeInBytes = vbSize;    // specify size of the buffer in bytes
-        m_vertexBufferView.StrideInBytes = sizeof(vertices[0]);  // specify size in bytes of each vertex entry in buffer 
+        m_vertexBufferView.SizeInBytes = m_verticesSize;    // specify size of the buffer in bytes
+        m_vertexBufferView.StrideInBytes = sizeof(Vertex);  // specify size in bytes of each vertex entry in buffer 
     }
 }
 
 void Primitive::CreateIndexBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* commandList)
 // Create index buffer
 {
-    DWORD indices[] =
-    {
-        // front face
-        0, 1, 2, // first triangle
-        0, 3, 1, // second triangle
-
-        // left face
-        4, 5, 6, // first triangle
-        4, 7, 5, // second triangle
-
-        // right face
-        8, 9, 10, // first triangle
-        8, 11, 9, // second triangle
-
-        // back face
-        12, 13, 14, // first triangle
-        12, 15, 13, // second triangle
-
-        // top face
-        16, 17, 18, // first triangle
-        16, 19, 17, // second triangle
-
-        // bottom face
-        20, 21, 22, // first triangle
-        20, 23, 21, // second triangle
-    };
-
-
-    UINT ibSize = sizeof(indices);
-
-    m_numIndices = ibSize / sizeof(indices[0]);
-
     // Create the index buffer in an implicit copy heap,
     // which we will copy to from an upload heap to upload to the GPU
     {
         // Create a default heap
         CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_DEFAULT);
         // Create a buffer large enough to encompass the index data
-        auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(ibSize);
+        auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(m_indicesSize);
 
 
         // Create the index buffer as a committed resource and an implicit heap big enough to contain it, and commit the resource to the heap.
@@ -207,7 +235,7 @@ void Primitive::CreateIndexBuffer(ID3D12Device* device, ID3D12GraphicsCommandLis
         // Create an upload heap to upload the GPU IB heap
         CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
         // Create a buffer large enough to encompass the index data
-        auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(ibSize);
+        auto bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(m_indicesSize);
 
 
         // Create the IB as a committed resource and an implicit heap big enough to contain it, and commit the resource to the heap.
@@ -224,9 +252,9 @@ void Primitive::CreateIndexBuffer(ID3D12Device* device, ID3D12GraphicsCommandLis
 
     // Store index buffer in upload heap
     D3D12_SUBRESOURCE_DATA indexData = {};
-    indexData.pData = reinterpret_cast<void**>(indices); // Pointer to the index array
-    indexData.RowPitch = ibSize;     // Physical size of index data
-    indexData.SlicePitch = ibSize;
+    indexData.pData = reinterpret_cast<void**>(m_indices.data()); // Pointer to the index array
+    indexData.RowPitch = m_indicesSize;     // Physical size of index data
+    indexData.SlicePitch = m_indicesSize;
 
 
     // Queue the copying of the IB intermediary upload heap to the IB resource.
@@ -255,7 +283,7 @@ void Primitive::CreateIndexBuffer(ID3D12Device* device, ID3D12GraphicsCommandLis
     // create index buffer view, used to tell input assembler where indices are stored in GPU memory
     {
         m_indexBufferView.BufferLocation = m_indexBuffer->GetGPUVirtualAddress(); // specify D3D12_GPU_VIRTUAL_ADDRESS that identifies buffer address
-        m_indexBufferView.SizeInBytes = ibSize;    // specify size of the buffer in bytes
+        m_indexBufferView.SizeInBytes = m_indicesSize;    // specify size of the buffer in bytes
         m_indexBufferView.Format = DXGI_FORMAT_R32_UINT;    // Specify DWORD as format
     }
 }
@@ -273,7 +301,7 @@ void Primitive::CreateBundle(ID3D12Device* device, ID3D12PipelineState* pipeline
     m_bundle->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     m_bundle->IASetVertexBuffers(0, 1, &m_vertexBufferView);
     m_bundle->IASetIndexBuffer(&m_indexBufferView);
-    m_bundle->DrawIndexedInstanced(m_numIndices, 1, 0, 0, 0);
+    m_bundle->DrawIndexedInstanced(m_indicesCount, 1, 0, 0, 0);
 
     // Cease recording of this bundle
     ThrowIfFailed(m_bundle->Close());
