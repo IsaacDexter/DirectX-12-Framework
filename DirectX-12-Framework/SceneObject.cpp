@@ -21,7 +21,7 @@ void SceneObject::Initialize()
 void SceneObject::Update(const float& deltaTime, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection)
 {
     // Update constant buffer
-    XMMATRIX model = GetModel();
+    XMMATRIX model = GetWorld();
     m_constantBuffer->Update(model, view, projection);
 }
 

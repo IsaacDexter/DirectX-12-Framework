@@ -30,9 +30,19 @@ public:
 		m_position.z = z;
 	}
 
-	const DirectX::XMMATRIX& GetModel() const
+	const DirectX::XMMATRIX& GetWorld() const
 	{
 		return DirectX::XMMatrixTranslation(m_position.x, m_position.y, m_position.z);
+	}
+
+	void SetModel(std::shared_ptr<Primitive> model)
+	{
+		m_model = model;
+	}
+	
+	void SetTexture(std::shared_ptr<Texture> texture)
+	{
+		m_texture = texture;
 	}
 protected:
 	DirectX::XMFLOAT3 m_position;

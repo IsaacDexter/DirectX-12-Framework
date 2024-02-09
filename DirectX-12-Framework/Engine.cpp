@@ -105,7 +105,7 @@ void Engine::OnKeyDown(WPARAM wParam)
         }
         break;
     case 'T':
-        m_renderer->CreateTexture(L"Assets/Tiles.dds");
+        m_sceneObjects.at("Object 1").SetTexture(m_renderer->CreateTexture(L"Assets/Sand.dds"));
     default:
         break;
     }
