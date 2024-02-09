@@ -10,8 +10,12 @@ SceneObject::SceneObject(std::shared_ptr<Primitive> model, std::shared_ptr<Textu
     m_model(model),
     m_texture(texture),
     m_constantBuffer(constantBuffer),
-    m_position(0.0f, 0.0f, 0.0f)
+    m_aabb(m_position, m_scale),
+    m_position(0.0f, 0.0f, 0.0f),
+    m_rotation(0.0f, 0.0f, 0.0f),
+    m_scale(0.5f, 0.5f, 0.5f)
 {
+
 }
 
 void SceneObject::Initialize()

@@ -35,6 +35,11 @@ const DirectX::XMMATRIX& Camera::GetProj()
 	return XMMatrixPerspectiveFovLH(0.8f, m_aspectRatio, m_nearZ, m_farZ);
 }
 
+const DirectX::XMMATRIX& Camera::GetWorld()
+{
+	return XMMatrixTranslationFromVector(XMLoadFloat3(&m_position));
+}
+
 void Camera::OnKeyDown(WPARAM input)
 {
 	// Update Based on keyboard input since last frame:

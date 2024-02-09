@@ -32,6 +32,6 @@ protected:
 	void CreateObject();
 
 	DirectX::XMFLOAT3 CreateRay(int x, int y);
-	bool Pick(const DirectX::XMFLOAT3 rayDirection, const DirectX::XMFLOAT3& rayOrigin, SceneObject* object);
+	bool Pick(const DirectX::XMFLOAT3& rayOrigin, const DirectX::XMFLOAT3& rayDirection, SceneObject* object);
 };
 

@@ -1,4 +1,5 @@
 #include "Engine.h"
+#include <DirectXCollision.h>
 using namespace DirectX;
 
 Engine::Engine(HINSTANCE hInstance) :
@@ -150,7 +151,7 @@ void Engine::OnMouseMove(int x, int y, WPARAM wParam)
     break;
     case MK_RBUTTON:
     {
-        Pick(CreateRay(x, y), m_camera->GetPosition(), nullptr);
+        Pick(m_camera->GetPosition(), CreateRay(x, y),  nullptr);
         
     }
     default:
@@ -183,7 +184,7 @@ XMFLOAT3 Engine::CreateRay(int x, int y)
 {
     XMMATRIX proj = m_camera->GetProj();
     XMMATRIX view = m_camera->GetView();
-    XMMATRIX world = XMMatrixIdentity();
+    XMMATRIX world = m_camera->GetWorld();
 
     UINT width = m_window->GetClientWidth();
     UINT height = m_window->GetClientHeight();
@@ -217,49 +218,25 @@ XMFLOAT3 Engine::CreateRay(int x, int y)
     XMFLOAT3 ray;
     XMStoreFloat3(&ray, direction);
 
-    char buffer[500];
-    sprintf_s(buffer, 500, "X: %f, Y: %f, Z: %f.\n", ray.x, ray.y, ray.z);
-    OutputDebugStringA(buffer);
+    
     return ray;
 }
 
-bool Engine::Pick(const XMFLOAT3 rayDirection, const XMFLOAT3& rayOrigin, SceneObject* selectedObject)
+bool Engine::Pick(const XMFLOAT3& rayOrigin, const XMFLOAT3& rayDirection, SceneObject* selectedObject)
 {
+    char buffer[500];
+    sprintf_s(buffer, 500, "Direction: (%f, %f, %f)\nOrigin: (%f, %f, %f)\n", rayDirection.x, rayDirection.y, rayDirection.z, rayOrigin.x, rayOrigin.y, rayOrigin.z);
+    OutputDebugStringA(buffer);
+
+
+
     for (auto object : m_sceneObjects)
     {
-        XMFLOAT3 size = XMFLOAT3(1.0f, 1.0f, 1.0f);
-        XMFLOAT3 position = object.second.GetPosition();
-
-        float tMin = (position.x - size.x / 2.0f - rayOrigin.x) / rayDirection.x;
-        float tMax = (position.x + size.x / 2.0f - rayOrigin.x) / rayDirection.x;
-
-        if (tMin > tMax) std::swap(tMin, tMax);
-
-        float tyMin = (position.y - size.y / 2.0f - rayOrigin.y) / rayDirection.y;
-        float tyMax = (position.y + size.y / 2.0f - rayOrigin.y) / rayDirection.y;
-
-        if (tyMin > tyMax) std::swap(tyMin, tyMax);
-
-        if ((tMin > tyMax) || (tyMin > tMax))
-            return false;
-
-        if (tyMin > tMin)
-            tMin = tyMin;
-
-        if (tyMax < tMax)
-            tMax = tyMax;
-
-        float tzMin = (position.z - size.z / 2.0f - rayOrigin.z) / rayDirection.z;
-        float tzMax = (position.z + size.z / 2.0f - rayOrigin.z) / rayDirection.z;
-
-        if (tzMin > tzMax) std::swap(tzMin, tzMax);
-
-        if ((tMin > tzMax) || (tzMin > tMax))
-            continue;
-
+        float dist;
+        if (object.second.GetAABB().Intersects(XMLoadFloat3(&rayOrigin), XMLoadFloat3(&rayDirection), dist))
         {
             selectedObject = &object.second;
-            OutputDebugStringA(("Selected object: " + object.first + ".\n").c_str());
+            OutputDebugStringA(("Selected Object: " + object.first + "\n").c_str());
             return true;
         }
     }

@@ -1,5 +1,6 @@
 #pragma once
 #include "stdafx.h"
+#include <DirectXCollision.h>
 
 class Primitive;
 class Texture;
@@ -21,6 +22,7 @@ public:
 	void SetPosition(const DirectX::XMFLOAT3& position)
 	{
 		m_position = position;
+		m_aabb.Center = position;
 	}
 
 	void SetPosition(const float& x, const float& y, const float& z)
@@ -28,6 +30,9 @@ public:
 		m_position.x = x;
 		m_position.y = y;
 		m_position.z = z;
+		m_aabb.Center.x = x;
+		m_aabb.Center.y = y;
+		m_aabb.Center.z = z;
 	}
 
 	const DirectX::XMMATRIX& GetWorld() const
@@ -44,8 +49,17 @@ public:
 	{
 		m_texture = texture;
 	}
+
+	DirectX::BoundingBox& GetAABB()
+	{
+		return m_aabb;
+	}
 protected:
 	DirectX::XMFLOAT3 m_position;
+	DirectX::XMFLOAT3 m_rotation;
+	DirectX::XMFLOAT3 m_scale;
+
+	DirectX::BoundingBox m_aabb;
 
 	std::shared_ptr<Primitive> m_model;
 	std::shared_ptr<Texture> m_texture;

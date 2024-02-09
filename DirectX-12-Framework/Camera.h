@@ -28,6 +28,7 @@ public:
 
     const DirectX::XMMATRIX& GetView();
     const DirectX::XMMATRIX& GetProj();
+    const DirectX::XMMATRIX& GetWorld();
 
     /** 
     * Call when resizing the window to resize the camera aspect ratio
@@ -57,6 +58,7 @@ public:
     {
         return m_position;
     }
+
 
     void OnKeyDown(WPARAM input);
     void OnKeyUp(WPARAM input);
