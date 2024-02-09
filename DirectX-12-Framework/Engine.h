@@ -1,7 +1,7 @@
 #pragma once
 #include "stdafx.h"
 #include "SceneObject.h"
-#include <vector>
+#include <set>
 #include "Camera.h"
 #include <string>
 #include "Window.h"
@@ -19,7 +19,7 @@ public:
 	void OnMouseMove(int x, int y, WPARAM wParam);
 	void OnResize();
 protected:
-	std::vector<std::shared_ptr<SceneObject>> m_sceneObjects;
+	std::set<std::shared_ptr<SceneObject>> m_sceneObjects;
 	std::unique_ptr<Camera> m_camera;
 
 	std::unique_ptr<Renderer> m_renderer;

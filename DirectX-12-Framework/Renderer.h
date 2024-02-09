@@ -7,7 +7,7 @@
 #include "imgui_impl_dx12.h"
 #include "imgui_impl_win32.h"
 #include <chrono>
-#include <map>
+#include <set>
 
 #include "Camera.h"
 #include "Controls.h"
@@ -31,7 +31,7 @@ public:
 	*/
 	void Initialize(HWND hWnd, UINT width, UINT height);
 	void Update();
-	void Render(std::vector<std::shared_ptr<SceneObject>>& objects);
+	void Render(std::set<std::shared_ptr<SceneObject>>& objects);
 	void Destroy();
 	void Resize(UINT width, UINT height);
 
@@ -183,7 +183,7 @@ private:
 
 #pragma region Rendering
 
-	void PopulateCommandList(std::vector<std::shared_ptr<SceneObject>>& objects);
+	void PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objects);
 
 #pragma endregion
 };

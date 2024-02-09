@@ -21,7 +21,7 @@ void Engine::Initialize()
     {
         auto object = std::make_shared<SceneObject>(cube, (i % 2 == 0) ? tiles : grass, m_renderer->CreateConstantBuffer());
         object->SetPosition(i * 2, 0.0f, 0.0f);
-        m_sceneObjects.push_back(object);
+        m_sceneObjects.emplace(object);
     }
 }
 
@@ -118,7 +118,7 @@ void Engine::OnKeyDown(WPARAM wParam)
         static int count = 1;
         auto object = std::make_shared<SceneObject>(m_renderer->CreateModel(L"Assets/Pyramid.obj"), m_renderer->CreateTexture(L"Assets/Sand.dds"), m_renderer->CreateConstantBuffer());
         object->SetPosition(-count, -count, -count);
-        m_sceneObjects.push_back(object);
+        m_sceneObjects.emplace(object);
         count++;
     }
         break;
@@ -223,12 +223,9 @@ XMFLOAT3 Engine::CreateRay(int x, int y)
 
 std::shared_ptr<SceneObject> Engine::Pick(const XMFLOAT3& rayOrigin, const XMFLOAT3& rayDirection)
 {
-    char buffer[500];
-    sprintf_s(buffer, 500, "Direction: (%f, %f, %f)\nOrigin: (%f, %f, %f)\n", rayDirection.x, rayDirection.y, rayDirection.z, rayOrigin.x, rayOrigin.y, rayOrigin.z);
-    OutputDebugStringA(buffer);
-
-
-
+    //char buffer[500];
+    //sprintf_s(buffer, 500, "Direction: (%f, %f, %f)\nOrigin: (%f, %f, %f)\n", rayDirection.x, rayDirection.y, rayDirection.z, rayOrigin.x, rayOrigin.y, rayOrigin.z);
+    //OutputDebugStringA(buffer);
     for (auto object : m_sceneObjects)
     {
         float dist;
