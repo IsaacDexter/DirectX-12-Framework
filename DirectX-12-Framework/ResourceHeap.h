@@ -13,13 +13,27 @@ public:
     void Initialize(ID3D12Device* device, ID3D12PipelineState* pipelineState);
     
 
-    const std::shared_ptr<Texture> CreateSRV();
+    const std::shared_ptr<Texture> CreateSRV(ID3D12Device* device);
     const std::shared_ptr<ConstantBuffer> CreateCBV();
     bool Remove(std::shared_ptr<Resource> resource);
 
     ID3D12DescriptorHeap* GetHeap()
     {
         return m_heap.Get();
+    }
+
+    bool Load(ID3D12CommandQueue* commandQueue)
+    {
+        bool load = m_load;
+        if (load)
+        {
+            m_load = false;
+            m_commandList->Close();
+
+            ID3D12CommandList* loadCommandLists[] = { m_commandList.Get()};
+            commandQueue->ExecuteCommandLists(_countof(loadCommandLists), loadCommandLists);
+        }
+        return load;
     }
 
     enum RootParameterIndices
@@ -52,6 +66,8 @@ protected:
     * While a priority queue would encourage contiguous placement of resources, such contiguity cannot be expected, and this makes deletion from the array (i.e. pushing to the queue) cheaper
     */
     std::queue<UINT> m_freedOffsets;
+
+    bool m_load = false;
 
     const UINT GetFreeIndex();
 };

@@ -60,12 +60,17 @@ void Renderer::Render(std::map<std::string, SceneObject>& objects)
     
     UpdateGUI();
 
+    // Put the command list into an array (of one) for execution on the queue
+    if (m_resourceHeap->Load(m_commandQueue.Get()))
+        WaitForGpu();
+
+
     // Record all rendering commands into the command list
     PopulateCommandList(objects);
 
     // Execute the command list
     // Put the command list into an array (of one) for execution on the queue
-    ID3D12CommandList* commandLists[] = { m_commandList.Get() };
+    ID3D12CommandList* commandLists[] = { m_commandList.Get()};
     m_commandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
 
     // Present the frame
@@ -571,12 +576,11 @@ void Renderer::InitializeAssets()
     m_cube->Initialize(m_device.Get(), m_commandList.Get(), m_pipelineState.Get(), m_rootSignature.Get());
 
     // Create the textures
-    m_tiles = m_resourceHeap->CreateSRV();
-    m_tiles->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Tiles.dds");
-    m_grass = m_resourceHeap->CreateSRV();
-    m_grass->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Grass.dds");
-    m_sand = m_resourceHeap->CreateSRV();
-    m_sand->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Sand.dds");
+    m_tiles = m_resourceHeap->CreateSRV(m_device.Get());
+    //m_grass = m_resourceHeap->CreateSRV();
+    //m_grass->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Grass.dds");
+    //m_sand = m_resourceHeap->CreateSRV();
+    //m_sand->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Sand.dds");
     // Reserve the Dear ImGui texture
     /*{
         CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(m_srvCbvHeap->GetCPUDescriptorHandleForHeapStart(), Descriptors::GUI, m_srvCbvHeapSize);
@@ -877,7 +881,7 @@ void Renderer::InitializeGUI(HWND hWnd)
 
     // Setup Platform/Renderer backends
     ImGui_ImplWin32_Init(hWnd);
-    auto srv = m_resourceHeap->CreateSRV();
+    auto srv = m_resourceHeap->CreateSRV(m_device.Get());
     ImGui_ImplDX12_Init(m_device.Get(), m_frameCount, DXGI_FORMAT_R8G8B8A8_UNORM,
         m_resourceHeap->GetHeap(),
         // You'll need to designate a descriptor from your descriptor heap for Dear ImGui to use internally for its font texture's SRV
@@ -943,6 +947,9 @@ void Renderer::MoveToNextFrame()
 
     // Set the next frame's fence value
     m_fenceValues[m_frameIndex] = currentFenceValue + 1;
+    char buffer[500];
+    sprintf_s(buffer, 500, "Current Fence Value: %lld\n", m_fenceValues[m_frameIndex]);
+    OutputDebugStringA(buffer);
 }
 
 void Renderer::WaitForGpu()

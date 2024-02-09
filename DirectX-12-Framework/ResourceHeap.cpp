@@ -37,7 +37,7 @@ void ResourceHeap::Initialize(ID3D12Device* device, ID3D12PipelineState* pipelin
     ), "Failed to create command list.\n");
 
 }
-const std::shared_ptr<Texture> ResourceHeap::CreateSRV()
+const std::shared_ptr<Texture> ResourceHeap::CreateSRV(ID3D12Device* device)
 {
     UINT freeOffset = GetFreeIndex();
 
@@ -46,6 +46,9 @@ const std::shared_ptr<Texture> ResourceHeap::CreateSRV()
     UINT rootParameterIndex = RootParameterIndices::SRV;
     auto resource = std::make_shared<Texture>(cpuDescriptorHandle, gpuDescriptorHandle, rootParameterIndex);
     m_resources.emplace(resource, freeOffset);
+    resource->Initialize(device, m_commandList.Get(), L"Assets/Tiles.dds");
+
+    m_load = true;
     return resource;
 }
 const std::shared_ptr<ConstantBuffer> ResourceHeap::CreateCBV()

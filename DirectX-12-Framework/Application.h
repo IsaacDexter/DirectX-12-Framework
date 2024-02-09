@@ -150,27 +150,6 @@ private:
 	void UpdateRenderTargetViews(Microsoft::WRL::ComPtr<ID3D12Device4> device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> rtvHeap, Microsoft::WRL::ComPtr<IDXGISwapChain3> swapChain, std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Renderer::m_frameCount>& renderTargets);
 
 	/**
-	* Create a resource large enough to hold buffer data
-	* Create an intermediate upload buffer to transfer data from CPU to GPU memory
-	* @param commandList The command list to transfer buffer data with
-	* @param pDestinationResource Created destination resource large enough to hold buffer data
-	* Cannot be deleted until resource has been fully uploaded to destination
-	* @param pIntermediateResource Created intermediate upload buffer to transfer data from CPU to GPU memory.
-	* @param numElements CPU buffer data to be transfered to GPU resource
-	* @param elementSize CPU buffer data to be transfered to GPU resource
-	* @param bufferData CPU buffer data to be transfered to GPU resource
-	* @param flags Additional flags to create the buffer resource
-	*/
-	void UpdateBufferResource(
-		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandList,
-		ID3D12Resource** pDestinationResource,
-		ID3D12Resource** pIntermediateResource,
-		size_t numElements,
-		const void* bufferData,
-		D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE
-	);
-
-	/**
 	* Check if screen tearing should be allowed for variable refresh displays
 	* @returns true if tearing should be allowed
 	*/
