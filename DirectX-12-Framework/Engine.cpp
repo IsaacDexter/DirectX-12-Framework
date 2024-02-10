@@ -81,7 +81,7 @@ void Engine::Update()
 
 void Engine::Render()
 {
-    m_renderer->Render(m_sceneObjects);
+    m_renderer->Render(m_sceneObjects, m_selectedObject);
 }
 
 void Engine::OnKeyDown(WPARAM wParam)
@@ -106,12 +106,12 @@ void Engine::OnKeyDown(WPARAM wParam)
         }
         break;
     case 'T':
-       /* if (m_selectedObject)
-            m_selectedObject->SetTexture(m_renderer->CreateTexture(L"Assets/Sand.dds"));*/
+        if (m_selectedObject)
+            m_selectedObject->SetTexture(m_renderer->CreateTexture(L"Assets/Sand.dds", "sand"));
         break;
     case 'M':
-        /*if (m_selectedObject)
-            m_selectedObject->SetModel(m_renderer->CreateModel(L"Assets/Pyramid.obj"));*/
+        if (m_selectedObject)
+            m_selectedObject->SetModel(m_renderer->CreateModel(L"Assets/Pyramid.obj", "pyramid"));
         break;
     case 'O':
     {

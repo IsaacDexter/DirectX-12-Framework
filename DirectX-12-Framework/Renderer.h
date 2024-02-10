@@ -31,7 +31,7 @@ public:
 	*/
 	void Initialize(HWND hWnd, UINT width, UINT height);
 	void Update();
-	void Render(std::set<std::shared_ptr<SceneObject>>& objects);
+	void Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject);
 	void Destroy();
 	void Resize(UINT width, UINT height);
 
@@ -172,7 +172,7 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> CreatePipelineStateObject(ID3DBlob* pVertexShaderBlob, ID3DBlob* pPixelShaderBlob);
 
 	void InitializeGUI(HWND hWnd);
-	void UpdateGUI(std::set<std::shared_ptr<SceneObject>>& objects);
+	void UpdateGUI(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject);
 	void DestroyGUI();
 	void RenderGUI(ID3D12GraphicsCommandList* commandList);
 

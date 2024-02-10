@@ -38,7 +38,7 @@ void Renderer::Update()
 
 }
 
-void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects)
+void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject)
 {/*
     - Populate command list
 	    - Reset command list allocator
@@ -59,7 +59,7 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects)
 	    - Wait on fence
     */
     
-    UpdateGUI(objects);
+    UpdateGUI(objects, selectedObject);
 
     // Put the command list into an array (of one) for execution on the queue
     if (m_resourceHeap->Load(m_commandQueue.Get()))
@@ -871,7 +871,7 @@ void Renderer::InitializeGUI(HWND hWnd)
 #endif
 }
 
-void Renderer::UpdateGUI(std::set<std::shared_ptr<SceneObject>>& objects)
+void Renderer::UpdateGUI(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject)
 {
 #if defined (_GUI)
     // Start new Dear ImGui frame
@@ -879,74 +879,67 @@ void Renderer::UpdateGUI(std::set<std::shared_ptr<SceneObject>>& objects)
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
-    ImGui::SetNextWindowSize(ImVec2(430, 450), ImGuiCond_FirstUseEver);
-    bool open = true;
-    if (!ImGui::Begin("Scene Graph", &open))
+    ImGui::ShowDemoWindow();
+
+    // Scene Graph
     {
-        ImGui::End();
-        return;
-    }
-
-
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2, 2));
-    if (ImGui::BeginTable("##split", 2, ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY))
-    {
-        ImGui::TableSetupScrollFreeze(0, 1);
-        ImGui::TableSetupColumn("Object");
-        ImGui::TableSetupColumn("Properties");
-        ImGui::TableHeadersRow();
-
-        //// Iterate placeholder objects (all the same data)
-        //for (int obj_i = 0; obj_i < 4; obj_i++)
-        //    ShowPlaceholderObject("Object", obj_i);
-        for (auto object : objects)
+        // Create the Scene Graph window
+        ImGui::SetNextWindowSize(ImVec2(430, 450), ImGuiCond_FirstUseEver);
+        bool open = true;
+        if (!ImGui::Begin("Scene Graph", &open))
         {
-            // Use object uid as identifier. Most commonly you could also use the object pointer as a base ID.
-            ImGui::PushID(object.get());
-
-            // Text and Tree nodes are less high than framed widgets, using AlignTextToFramePadding() we add vertical spacing to make the tree lines equal high.
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::AlignTextToFramePadding();
-            bool node_open = ImGui::TreeNode("Object", "%s", object->GetName().c_str());
-            ImGui::TableSetColumnIndex(1);
-
-            if (node_open)
+            ImGui::End();
+            return;
+        }
+        // Create the list of items in the world
+        if (ImGui::BeginListBox("##Objects list", ImVec2(-FLT_MIN, -FLT_MIN)))
+        {
+            for (auto object : objects)
             {
-                ImGui::Text(object->GetName().c_str());
-                // Show the object's texture
-                {
-                    ImGui::PushID("Texture"); // Use field index as identifier.
-                    auto texture = object->GetTexture();
-                    std::string name = texture->GetName();
+                const bool is_selected = (selectedObject == object);
+                if (ImGui::Selectable(object->GetName().c_str(), is_selected))
+                    selectedObject = object;
 
-                    // Here we use a TreeNode to highlight on hover (we could use e.g. Selectable as well)
-                    ImGui::TableNextRow();
-                    ImGui::TableSetColumnIndex(0);
-                    ImGui::AlignTextToFramePadding();
-                    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_Bullet;
-                    ImGui::TreeNodeEx("Texture", flags, "Texture");
-
-                    ImGui::TableSetColumnIndex(1);
-                    ImGui::SetNextItemWidth(-FLT_MIN);
-                    ImGui::InputText("##value", &name);
-                    
-
-                    
-                    ImGui::NextColumn();
-
-                    ImGui::PopID();
-                }
-                ImGui::TreePop();
+                // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+                if (is_selected)
+                    ImGui::SetItemDefaultFocus();
             }
-            ImGui::PopID();
+            ImGui::EndListBox();
         }
 
-        ImGui::EndTable();
+        ImGui::End();
     }
-    ImGui::PopStyleVar();
-    ImGui::End();
+    
+    // Create properties editor
+    {
+        // Create the Scene Graph window
+        ImGui::SetNextWindowSize(ImVec2(430, 450), ImGuiCond_FirstUseEver);
+        bool open = true;
+        if (!ImGui::Begin("Properties Editor", &open))
+        {
+            ImGui::End();
+            return;
+        }
+        // Create the list of items in the world
+        if (ImGui::BeginListBox("##Objects list", ImVec2(-FLT_MIN, -FLT_MIN)))
+        {
+            for (auto object : objects)
+            {
+                const bool is_selected = (selectedObject == object);
+                if (ImGui::Selectable(object->GetName().c_str(), is_selected))
+                    selectedObject = object;
 
+                // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+                if (is_selected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndListBox();
+        }
+
+        ImGui::End();
+    }
+
+    
 #endif
 }
 
