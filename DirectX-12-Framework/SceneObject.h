@@ -22,7 +22,7 @@ public:
 	void SetPosition(const DirectX::XMFLOAT3& position)
 	{
 		m_position = position;
-		m_aabb.Center = position;
+		m_boundingBox.Center = position;
 	}
 
 	void SetPosition(const float& x, const float& y, const float& z)
@@ -30,15 +30,47 @@ public:
 		m_position.x = x;
 		m_position.y = y;
 		m_position.z = z;
-		m_aabb.Center.x = x;
-		m_aabb.Center.y = y;
-		m_aabb.Center.z = z;
+		m_boundingBox.Center.x = x;
+		m_boundingBox.Center.y = y;
+		m_boundingBox.Center.z = z;
 	}
 
-	const DirectX::XMMATRIX& GetWorld() const
+	const DirectX::XMFLOAT3& GetRotation() const
 	{
-		return DirectX::XMMatrixTranslation(m_position.x, m_position.y, m_position.z);
+		return m_rotation;
 	}
+
+	void SetRotation(const DirectX::XMFLOAT3& rotation);
+	
+	
+	void SetRotation(const float& roll, const float& pitch, const float& yaw);
+	
+
+	const DirectX::XMFLOAT3& GetScale() const
+	{
+		return m_scale;
+	}
+
+	void SetScale(const DirectX::XMFLOAT3& scale)
+	{
+		m_scale = scale;
+		m_boundingBox.Extents.x = scale.x / 2.0f;
+		m_boundingBox.Extents.y = scale.y / 2.0f;
+		m_boundingBox.Extents.z = scale.z / 2.0f;
+	}
+	
+	void SetScale(const float& x, const float& y, const float& z)
+	{
+		m_scale.x = x;
+		m_scale.y = y;
+		m_scale.z = z;
+		m_boundingBox.Extents.x = x / 2.0f;
+		m_boundingBox.Extents.y = y / 2.0f;
+		m_boundingBox.Extents.z = z / 2.0f;
+	}
+
+	const DirectX::XMMATRIX& GetWorld() const;
+	
 
 	std::shared_ptr<Primitive> GetModel()
 	{
@@ -60,9 +92,9 @@ public:
 		m_texture = texture;
 	}
 
-	DirectX::BoundingBox& GetAABB()
+	DirectX::BoundingOrientedBox& GetBoundingBox()
 	{
-		return m_aabb;
+		return m_boundingBox;
 	}
 
 	std::string GetName()
@@ -76,7 +108,7 @@ protected:
 
 	std::string m_name;
 
-	DirectX::BoundingBox m_aabb;
+	DirectX::BoundingOrientedBox m_boundingBox;
 
 	std::shared_ptr<Primitive> m_model;
 	std::shared_ptr<Texture> m_texture;

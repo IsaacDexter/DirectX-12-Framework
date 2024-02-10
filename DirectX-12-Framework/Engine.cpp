@@ -229,7 +229,7 @@ std::shared_ptr<SceneObject> Engine::Pick(const XMFLOAT3& rayOrigin, const XMFLO
     for (auto object : m_sceneObjects)
     {
         float dist;
-        if (object->GetAABB().Intersects(XMLoadFloat3(&rayOrigin), XMLoadFloat3(&rayDirection), dist))
+        if (object->GetBoundingBox().Intersects(XMLoadFloat3(&rayOrigin), XMLoadFloat3(&rayDirection), dist))
         {
             return object;
         }

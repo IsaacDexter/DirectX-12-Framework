@@ -36,7 +36,7 @@ public:
         Sampler,
     };
 protected:
-
+    friend class Renderer;
 	// Shader resource view heap for accessing data in a resource (texture)
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_heap;
     Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_commandList;

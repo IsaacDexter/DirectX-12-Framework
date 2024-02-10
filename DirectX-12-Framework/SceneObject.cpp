@@ -11,17 +11,21 @@ SceneObject::SceneObject(std::shared_ptr<Primitive> model, std::shared_ptr<Textu
     m_texture(texture),
     m_constantBuffer(constantBuffer),
     m_name(name),
-    m_aabb(m_position, m_scale),
     m_position(0.0f, 0.0f, 0.0f),
     m_rotation(0.0f, 0.0f, 0.0f),
-    m_scale(0.5f, 0.5f, 0.5f)
+    m_scale(1.0f, 1.0f, 1.0f)
 {
+    XMFLOAT4 orientation;
+    XMStoreFloat4(&orientation, XMQuaternionRotationRollPitchYaw(m_rotation.x, m_rotation.y, m_rotation.z));
+    m_boundingBox = BoundingOrientedBox(m_position, XMFLOAT3(m_scale.x / 2.0f, m_scale.y / 2.0f, m_scale.z / 2.0f), orientation);
 
 }
 
 void SceneObject::Initialize()
 {
+
 }
+
 
 void SceneObject::Update(const float& deltaTime, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection)
 {
@@ -38,4 +42,30 @@ void SceneObject::Draw(ID3D12GraphicsCommandList* commandList)
         m_constantBuffer->Set(commandList);
     if (m_model)
         m_model->Draw(commandList);
+}
+
+void SceneObject::SetRotation(const DirectX::XMFLOAT3& rotation)
+{
+    m_rotation = rotation;
+    XMFLOAT4 orientation;
+    XMStoreFloat4(&orientation, XMQuaternionRotationRollPitchYaw(rotation.x, rotation.y, rotation.z));
+    m_boundingBox.Orientation = orientation;
+}
+
+void SceneObject::SetRotation(const float& roll, const float& pitch, const float& yaw)
+{
+    m_rotation.x = roll;
+    m_rotation.y = pitch;
+    m_rotation.z = yaw;
+    XMFLOAT4 orientation;
+    XMStoreFloat4(&orientation, XMQuaternionRotationRollPitchYaw(roll, pitch, yaw));
+    m_boundingBox.Orientation = orientation;
+}
+
+const DirectX::XMMATRIX& SceneObject::GetWorld() const
+{
+    XMMATRIX translation = DirectX::XMMatrixTranslation(m_position.x, m_position.y, m_position.z);
+    XMMATRIX rotation = DirectX::XMMatrixRotationRollPitchYaw(m_rotation.x, m_rotation.y, m_rotation.z);
+    XMMATRIX scale = XMMatrixScaling(m_scale.x, m_scale.y, m_scale.z);
+    return translation * rotation * scale;
 }

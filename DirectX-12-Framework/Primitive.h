@@ -8,6 +8,11 @@ public:
 	Primitive(std::string name);
 	void Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature, const wchar_t* path);
 	void Draw(ID3D12GraphicsCommandList* commandList);
+
+	std::string GetName()
+	{
+		return m_name;
+	}
 private:
 	void LoadModel(const wchar_t* path);
 	void CreateVertexBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* commandList);
