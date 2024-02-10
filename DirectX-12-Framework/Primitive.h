@@ -5,7 +5,7 @@
 class Primitive
 {
 public:
-	Primitive();
+	Primitive(std::string name);
 	void Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature, const wchar_t* path);
 	void Draw(ID3D12GraphicsCommandList* commandList);
 private:
@@ -47,5 +47,7 @@ private:
 	* Bundle to hand to the application that encompasses the drawing of this model
 	*/
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_bundle;
+
+	std::string m_name;
 };
 

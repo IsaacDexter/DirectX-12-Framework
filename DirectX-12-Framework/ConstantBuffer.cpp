@@ -1,8 +1,8 @@
 #include "ConstantBuffer.h"
 using namespace DirectX;
 
-ConstantBuffer::ConstantBuffer(const ResourceHandle resourceHandle, const UINT& cbvRootParameterIndex) :
-	Resource(resourceHandle, cbvRootParameterIndex),
+ConstantBuffer::ConstantBuffer(const ResourceHandle resourceHandle, const UINT& cbvRootParameterIndex, std::string name) :
+	Resource(resourceHandle, cbvRootParameterIndex, name),
 	m_pCbvDataBegin(nullptr),
 	m_constantBufferData()
 {

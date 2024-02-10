@@ -12,7 +12,7 @@ public:
 	* @param srvGpuDescriptorHandle free GPU handle on the Descriptor heap to designate to the textures SRV.
 	* @param srvRootParameterIndex the root parameter index to the SRV descriptor table in which the Texture lies.
 	*/
-	Texture(const ResourceHandle resourceHandle, const UINT& srvRootParameterIndex, const wchar_t* path);
+	Texture(const ResourceHandle resourceHandle, const UINT& srvRootParameterIndex, std::string name);
 	/**
 	* Loads and creates a given texture into a resource.
 	* @param uploadRes, ComPtr to an upload resource, that needs to stay in scope past the method. Ensure the GPU is flushed so it doesn't leave scope prematurely.
@@ -20,8 +20,7 @@ public:
 	* @param descriptor UINT identifier to the texture
 	* @ returns the newly created texture resource
 	*/
-	void Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList);
-	std::string GetPath();
+	void Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, const wchar_t* path);
 
 protected:
 	// Note: ComPtr's are CPU objects but this resource needs to stay in scope until
@@ -29,6 +28,5 @@ protected:
 	// We will flush the GPU at the end of this method to ensure the resource is not
 	// prematurely destroyed.
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_uploadRes;
-	const std::wstring m_path;
 };
 

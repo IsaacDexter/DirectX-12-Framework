@@ -42,28 +42,29 @@ void ResourceHeap::Initialize(ID3D12Device* device, ID3D12PipelineState* pipelin
     m_load = true;
 
 }
-const std::shared_ptr<Texture> ResourceHeap::CreateTexture(ID3D12Device* device, ID3D12PipelineState* pipelineState, const wchar_t* path)
+const std::shared_ptr<Texture> ResourceHeap::CreateTexture(ID3D12Device* device, ID3D12PipelineState* pipelineState, const wchar_t* path, std::string name)
 {
+
     if (!m_load)
     {
         m_commandAllocator->Reset();
         m_commandList->Reset(m_commandAllocator.Get(), pipelineState);
     }
 
-    auto resource = ReserveSRV(path);
-    resource->Initialize(device, m_commandList.Get());
+    auto resource = ReserveSRV(name);
+    resource->Initialize(device, m_commandList.Get(), path);
 
     m_load = true;
     return resource;
 }
 
-const std::shared_ptr<Texture> ResourceHeap::ReserveSRV(const wchar_t* path)
+const std::shared_ptr<Texture> ResourceHeap::ReserveSRV(std::string name)
 {
     ResourceHandle resourceHandle = GetFreeHandle();
     UINT rootParameterIndex = RootParameterIndices::SRV;
 
-    auto resource = std::make_shared<Texture>(resourceHandle, rootParameterIndex, path);
-    m_textures.emplace(std::wstring(path), resource);
+    auto resource = std::make_shared<Texture>(resourceHandle, rootParameterIndex, name);
+    m_textures.emplace(name, resource);
     return resource;
 }
 const std::shared_ptr<ConstantBuffer> ResourceHeap::CreateCBV()
@@ -71,11 +72,11 @@ const std::shared_ptr<ConstantBuffer> ResourceHeap::CreateCBV()
     ResourceHandle resourceHandle = GetFreeHandle();
     UINT rootParameterIndex = RootParameterIndices::CBV;
 
-    auto resource = std::make_shared<ConstantBuffer>(resourceHandle, rootParameterIndex);
+    auto resource = std::make_shared<ConstantBuffer>(resourceHandle, rootParameterIndex, "");
     m_constantBuffers.emplace(resource);
     return resource;
 }
-const std::shared_ptr<Primitive> ResourceHeap::CreateModel(ID3D12Device* device, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature, const wchar_t* path)
+const std::shared_ptr<Primitive> ResourceHeap::CreateModel(ID3D12Device* device, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature, const wchar_t* path, std::string name)
 {
     if (!m_load)
     {
@@ -84,9 +85,9 @@ const std::shared_ptr<Primitive> ResourceHeap::CreateModel(ID3D12Device* device,
     }
 
     // Create the model
-    auto model = std::make_shared<Primitive>();
+    auto model = std::make_shared<Primitive>(name);
     model->Initialize(device, m_commandList.Get(), pipelineState, rootSignature, path);
-    m_models.emplace(std::wstring(path), model);
+    m_models.emplace(name, model);
 
     m_load = true;
     return model;

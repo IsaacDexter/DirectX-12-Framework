@@ -35,8 +35,8 @@ public:
 	void Destroy();
 	void Resize(UINT width, UINT height);
 
-	std::shared_ptr<Texture> CreateTexture(const wchar_t* path);
-	std::shared_ptr<Primitive> CreateModel(const wchar_t* path);
+	std::shared_ptr<Texture> CreateTexture(const wchar_t* path, std::string name);
+	std::shared_ptr<Primitive> CreateModel(const wchar_t* path, std::string name);
 	std::shared_ptr<ConstantBuffer> CreateConstantBuffer();
 
 private:

@@ -22,7 +22,7 @@ public:
 	* @param srvGpuDescriptorHandle free GPU handle on the Descriptor heap to designate to the textures SRV.
 	* @param srvRootParameterIndex the root parameter index to the SRV descriptor table in which the Texture lies.
 	*/
-	Resource(const ResourceHandle, const UINT& rootParameterIndex);
+	Resource(const ResourceHandle, const UINT& rootParameterIndex, std::string name);
 	void Set(ID3D12GraphicsCommandList* commandList);
 
 	const ResourceHandle& GetResourceHandle()
@@ -33,10 +33,15 @@ public:
 	{
 		return m_rootParameterIndex;
 	}
+	std::string GetName()
+	{
+		return m_name;
+	}
 protected:
 
 	const ResourceHandle m_resourceHandle;
 	const UINT m_rootParameterIndex;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_resource;
+	std::string m_name;
 };
 

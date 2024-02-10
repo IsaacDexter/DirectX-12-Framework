@@ -5,7 +5,7 @@
 class ConstantBuffer : public Resource
 {
 public:
-	ConstantBuffer(const ResourceHandle resourceHandle, const UINT& cbvRootParameterIndex);
+	ConstantBuffer(const ResourceHandle resourceHandle, const UINT& cbvRootParameterIndex, std::string name);
 	void Initialize(ID3D12Device* device);
 	// Update Model View Projection (MVP) Matrix according to camera position
 	void Update(const DirectX::XMMATRIX& model, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);

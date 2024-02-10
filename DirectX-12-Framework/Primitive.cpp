@@ -1,8 +1,9 @@
 #include "Primitive.h"
 
-Primitive::Primitive() :
+Primitive::Primitive(std::string name) :
 m_indexBufferView(),
-m_vertexBufferView()
+m_vertexBufferView(),
+m_name(name)
 {
 }
 

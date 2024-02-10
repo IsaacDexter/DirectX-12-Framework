@@ -129,14 +129,14 @@ void Renderer::Resize(UINT width, UINT height)
 
 }
 
-std::shared_ptr<Texture> Renderer::CreateTexture(const wchar_t* path)
+std::shared_ptr<Texture> Renderer::CreateTexture(const wchar_t* path, std::string name)
 {
-    return m_resourceHeap->CreateTexture(m_device.Get(), m_pipelineState.Get(), path);
+    return m_resourceHeap->CreateTexture(m_device.Get(), m_pipelineState.Get(), path, name);
 }
 
-std::shared_ptr<Primitive> Renderer::CreateModel(const wchar_t* path)
+std::shared_ptr<Primitive> Renderer::CreateModel(const wchar_t* path, std::string name)
 {
-    return m_resourceHeap->CreateModel(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get(), path);
+    return m_resourceHeap->CreateModel(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get(), path, name);
 }
 
 std::shared_ptr<ConstantBuffer> Renderer::CreateConstantBuffer()
@@ -861,7 +861,7 @@ void Renderer::InitializeGUI(HWND hWnd)
 
     // Setup Platform/Renderer backends
     ImGui_ImplWin32_Init(hWnd);
-    auto srv = m_resourceHeap->ReserveSRV(L"");
+    auto srv = m_resourceHeap->ReserveSRV("GUI");
     ImGui_ImplDX12_Init(m_device.Get(), m_frameCount, DXGI_FORMAT_R8G8B8A8_UNORM,
         m_resourceHeap->GetHeap(),
         // You'll need to designate a descriptor from your descriptor heap for Dear ImGui to use internally for its font texture's SRV
@@ -918,7 +918,7 @@ void Renderer::UpdateGUI(std::set<std::shared_ptr<SceneObject>>& objects)
                 {
                     ImGui::PushID("Texture"); // Use field index as identifier.
                     auto texture = object->GetTexture();
-                    std::string path = texture->GetPath();
+                    std::string name = texture->GetName();
 
                     // Here we use a TreeNode to highlight on hover (we could use e.g. Selectable as well)
                     ImGui::TableNextRow();
@@ -929,8 +929,8 @@ void Renderer::UpdateGUI(std::set<std::shared_ptr<SceneObject>>& objects)
 
                     ImGui::TableSetColumnIndex(1);
                     ImGui::SetNextItemWidth(-FLT_MIN);
-                    ImGui::InputText("##value", &path);
-
+                    ImGui::InputText("##value", &name);
+                    
 
                     
                     ImGui::NextColumn();

@@ -5,18 +5,17 @@
 #include <codecvt>
 using namespace DirectX;
 
-Texture::Texture(const ResourceHandle resourceHandle, const UINT& srvRootParameterIndex, const wchar_t* path) :
-    Resource(resourceHandle, srvRootParameterIndex),
-    m_path(path)
+Texture::Texture(const ResourceHandle resourceHandle, const UINT& srvRootParameterIndex, std::string name) :
+    Resource(resourceHandle, srvRootParameterIndex, name)
 {
 }
 
-void Texture::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList)
+void Texture::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, const wchar_t* path)
 {
     std::unique_ptr<uint8_t[]> ddsData;
     std::vector<D3D12_SUBRESOURCE_DATA> subresources;
     ThrowIfFailed(
-        LoadDDSTextureFromFile(device, m_path.c_str(), &m_resource,
+        LoadDDSTextureFromFile(device, path, &m_resource,
             ddsData, subresources), "Coudln't load texture.\n ");
 
     const UINT64 uploadBufferSize = GetRequiredIntermediateSize(m_resource.Get(), 0,
@@ -45,9 +44,4 @@ void Texture::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* comman
     commandList->ResourceBarrier(1, &barrier);
 
     CreateShaderResourceView(device, m_resource.Get(), m_resourceHandle.cpuDescriptorHandle);
-}
-
-std::string Texture::GetPath()
-{
-    return std::string(m_path.begin(), m_path.end());
 }

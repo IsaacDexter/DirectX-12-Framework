@@ -1,8 +1,9 @@
 #include "Resource.h"
 
-Resource::Resource(const ResourceHandle resourceHandle, const UINT& rootParameterIndex) :
+Resource::Resource(const ResourceHandle resourceHandle, const UINT& rootParameterIndex, std::string name) :
     m_resourceHandle(resourceHandle),
-    m_rootParameterIndex(rootParameterIndex)
+    m_rootParameterIndex(rootParameterIndex),
+    m_name(name)
 {
 }
 

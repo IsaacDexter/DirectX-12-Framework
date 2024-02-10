@@ -14,9 +14,9 @@ Engine::Engine(HINSTANCE hInstance) :
 void Engine::Initialize()
 {
     m_camera = std::make_unique<Camera>(XMFLOAT3(0.0f, 0.0f, 3.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), m_window->GetAspectRatio());
-    auto tiles = m_renderer->CreateTexture(L"Assets/Tiles.dds");
-    auto grass = m_renderer->CreateTexture(L"Assets/Grass.dds");
-    auto cube = m_renderer->CreateModel(L"Assets/Cube.obj");
+    auto tiles = m_renderer->CreateTexture(L"Assets/Tiles.dds", "tiles");
+    auto grass = m_renderer->CreateTexture(L"Assets/Grass.dds", "grass");
+    auto cube = m_renderer->CreateModel(L"Assets/Cube.obj", "cube");
     for (UINT i = 0; i < m_numObjects; i++)
     {
         auto object = std::make_shared<SceneObject>(cube, (i % 2 == 0) ? tiles : grass, m_renderer->CreateConstantBuffer(), "Object " + std::to_string(i));
@@ -106,20 +106,20 @@ void Engine::OnKeyDown(WPARAM wParam)
         }
         break;
     case 'T':
-        if (m_selectedObject)
-            m_selectedObject->SetTexture(m_renderer->CreateTexture(L"Assets/Sand.dds"));
+       /* if (m_selectedObject)
+            m_selectedObject->SetTexture(m_renderer->CreateTexture(L"Assets/Sand.dds"));*/
         break;
     case 'M':
-        if (m_selectedObject)
-            m_selectedObject->SetModel(m_renderer->CreateModel(L"Assets/Pyramid.obj"));
+        /*if (m_selectedObject)
+            m_selectedObject->SetModel(m_renderer->CreateModel(L"Assets/Pyramid.obj"));*/
         break;
     case 'O':
     {
-        static int count = 1;
+        /*static int count = 1;
         auto object = std::make_shared<SceneObject>(m_renderer->CreateModel(L"Assets/Pyramid.obj"), m_renderer->CreateTexture(L"Assets/Sand.dds"), m_renderer->CreateConstantBuffer(), "New Object " + std::to_string(count));
         object->SetPosition(-count, -count, -count);
         m_sceneObjects.emplace(object);
-        count++;
+        count++;*/
     }
         break;
     default:
