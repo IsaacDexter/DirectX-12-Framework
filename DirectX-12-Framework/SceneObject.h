@@ -97,9 +97,14 @@ public:
 		return m_boundingBox;
 	}
 
-	std::string GetName()
+	const std::string& GetName()
 	{
 		return m_name;
+	}
+
+	void SetName(const std::string& name)
+	{
+		m_name = name;
 	}
 protected:
 	DirectX::XMFLOAT3 m_position;

@@ -909,11 +909,26 @@ void Renderer::ShowSceneGraph(std::set<std::shared_ptr<SceneObject>>& objects, s
             const bool is_selected = (selectedObject == object);
             if (ImGui::Selectable(object->GetName().c_str(), is_selected))
                 selectedObject = object;
-
+            
             // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
             if (is_selected)
                 ImGui::SetItemDefaultFocus();
         }
+        if (ImGui::Button("New"))
+        {
+            std::shared_ptr<SceneObject> object;
+            if (selectedObject)
+            {
+                object = std::make_shared<SceneObject>(selectedObject->GetModel(), selectedObject->GetTexture(), CreateConstantBuffer(), "new " + selectedObject->GetName());
+            }
+            else
+            {
+                object = std::make_shared<SceneObject>(nullptr, nullptr, CreateConstantBuffer(), "new ");
+            }
+            objects.emplace(object);
+            selectedObject = object;
+        }
+
         ImGui::EndListBox();
     }
 
@@ -929,13 +944,25 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
     if (!ImGui::Begin("Properties Editor", &open))
     {
         ImGui::End();
+        return;
     }
     if (selectedObject)
     {
 
         // Create the list of items in the world
-        if (ImGui::TreeNode(selectedObject->GetName().c_str()))
-        {
+        /*if (ImGui::TreeNode(selectedObject->GetName().c_str()))
+        {*/
+            // Name:
+            {
+                ImGui::Text("Name:");
+                std::string name = selectedObject->GetName();
+                if (ImGui::InputText("##Name", &name) && !name.empty())
+                {
+                    selectedObject->SetName(name);
+                }
+
+            }
+
             // Position
             {
                 ImGui::Text("Position:");
@@ -1005,8 +1032,8 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
                 }
             }
 
-            ImGui::TreePop();
-        }
+        //    ImGui::TreePop();
+        //}
     }
 
     ImGui::End();

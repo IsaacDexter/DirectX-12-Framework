@@ -105,23 +105,6 @@ void Engine::OnKeyDown(WPARAM wParam)
         m_window->SetFullscreen();
         }
         break;
-    case 'T':
-        if (m_selectedObject)
-            m_selectedObject->SetTexture(m_renderer->CreateTexture(L"Assets/Sand.dds", "sand"));
-        break;
-    case 'M':
-        if (m_selectedObject)
-            m_selectedObject->SetModel(m_renderer->CreateModel(L"Assets/Pyramid.obj", "pyramid"));
-        break;
-    case 'O':
-    {
-        /*static int count = 1;
-        auto object = std::make_shared<SceneObject>(m_renderer->CreateModel(L"Assets/Pyramid.obj"), m_renderer->CreateTexture(L"Assets/Sand.dds"), m_renderer->CreateConstantBuffer(), "New Object " + std::to_string(count));
-        object->SetPosition(-count, -count, -count);
-        m_sceneObjects.emplace(object);
-        count++;*/
-    }
-        break;
     default:
         break;
     }
