@@ -173,6 +173,8 @@ private:
 
 	void InitializeGUI(HWND hWnd);
 	void UpdateGUI(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject);
+	void ShowSceneGraph(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject);
+	void ShowProperties(std::shared_ptr<SceneObject>& selectedObject);
 	void DestroyGUI();
 	void RenderGUI(ID3D12GraphicsCommandList* commandList);
 

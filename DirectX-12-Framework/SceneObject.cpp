@@ -67,5 +67,5 @@ const DirectX::XMMATRIX& SceneObject::GetWorld() const
     XMMATRIX translation = DirectX::XMMatrixTranslation(m_position.x, m_position.y, m_position.z);
     XMMATRIX rotation = DirectX::XMMatrixRotationRollPitchYaw(m_rotation.x, m_rotation.y, m_rotation.z);
     XMMATRIX scale = XMMatrixScaling(m_scale.x, m_scale.y, m_scale.z);
-    return translation * rotation * scale;
+    return scale * rotation * translation;
 }
