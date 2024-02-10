@@ -5,7 +5,7 @@
 class ConstantBuffer : public Resource
 {
 public:
-	ConstantBuffer(const D3D12_CPU_DESCRIPTOR_HANDLE& cbvCpuDescriptorHandle, const D3D12_GPU_DESCRIPTOR_HANDLE& cbvGpuDescriptorHandle, const UINT& cbvRootParameterIndex);
+	ConstantBuffer(const ResourceHandle resourceHandle, const UINT& cbvRootParameterIndex);
 	void Initialize(ID3D12Device* device);
 	// Update Model View Projection (MVP) Matrix according to camera position
 	void Update(const DirectX::XMMATRIX& model, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);

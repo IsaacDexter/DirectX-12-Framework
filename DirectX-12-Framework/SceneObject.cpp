@@ -6,10 +6,11 @@
 using namespace DirectX;
 using namespace Microsoft::WRL;
 
-SceneObject::SceneObject(std::shared_ptr<Primitive> model, std::shared_ptr<Texture> texture, std::shared_ptr<ConstantBuffer> constantBuffer) :
+SceneObject::SceneObject(std::shared_ptr<Primitive> model, std::shared_ptr<Texture> texture, std::shared_ptr<ConstantBuffer> constantBuffer, std::string name) :
     m_model(model),
     m_texture(texture),
     m_constantBuffer(constantBuffer),
+    m_name(name),
     m_aabb(m_position, m_scale),
     m_position(0.0f, 0.0f, 0.0f),
     m_rotation(0.0f, 0.0f, 0.0f),

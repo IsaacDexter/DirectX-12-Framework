@@ -1,11 +1,13 @@
 #include "ResourceHeap.h"
 
 ResourceHeap::ResourceHeap() :
-    m_heapSize(NULL)
+    m_heapSize(NULL),
+    m_freeHandles(),
+    m_textures(),
+    m_models(),
+    m_constantBuffers()
 {
-    m_freedOffsets = std::queue<UINT>();
-    m_resources = std::unordered_map< std::shared_ptr<Resource>, UINT>();
-    m_models = std::unordered_set< std::shared_ptr<Primitive>>();
+
 };
 
 void ResourceHeap::Initialize(ID3D12Device* device, ID3D12PipelineState* pipelineState)
@@ -48,38 +50,33 @@ const std::shared_ptr<Texture> ResourceHeap::CreateTexture(ID3D12Device* device,
         m_commandList->Reset(m_commandAllocator.Get(), pipelineState);
     }
 
-    auto resource = ReserveSRV(device);
-    resource->Initialize(device, m_commandList.Get(), path);
+    auto resource = ReserveSRV(path);
+    resource->Initialize(device, m_commandList.Get());
 
     m_load = true;
     return resource;
 }
 
-const std::shared_ptr<Texture> ResourceHeap::ReserveSRV(ID3D12Device*)
+const std::shared_ptr<Texture> ResourceHeap::ReserveSRV(const wchar_t* path)
 {
-    UINT freeOffset = GetFreeIndex();
-
-    CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(m_heap->GetCPUDescriptorHandleForHeapStart(), freeOffset, m_heapSize);
-    CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorHandle(m_heap->GetGPUDescriptorHandleForHeapStart(), freeOffset, m_heapSize);
+    ResourceHandle resourceHandle = GetFreeHandle();
     UINT rootParameterIndex = RootParameterIndices::SRV;
-    auto resource = std::make_shared<Texture>(cpuDescriptorHandle, gpuDescriptorHandle, rootParameterIndex);
-    m_resources.emplace(resource, freeOffset);
+
+    auto resource = std::make_shared<Texture>(resourceHandle, rootParameterIndex, path);
+    m_textures.emplace(std::wstring(path), resource);
     return resource;
 }
 const std::shared_ptr<ConstantBuffer> ResourceHeap::CreateCBV()
 {
-    UINT freeOffset = GetFreeIndex();
-
-    CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(m_heap->GetCPUDescriptorHandleForHeapStart(), freeOffset, m_heapSize);
-    CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorHandle(m_heap->GetGPUDescriptorHandleForHeapStart(), freeOffset, m_heapSize);
+    ResourceHandle resourceHandle = GetFreeHandle();
     UINT rootParameterIndex = RootParameterIndices::CBV;
-    auto resource = std::make_shared<ConstantBuffer>(cpuDescriptorHandle, gpuDescriptorHandle, rootParameterIndex);
-    m_resources.emplace(resource, freeOffset);
+
+    auto resource = std::make_shared<ConstantBuffer>(resourceHandle, rootParameterIndex);
+    m_constantBuffers.emplace(resource);
     return resource;
 }
 const std::shared_ptr<Primitive> ResourceHeap::CreateModel(ID3D12Device* device, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature, const wchar_t* path)
 {
-
     if (!m_load)
     {
         m_commandAllocator->Reset();
@@ -89,28 +86,14 @@ const std::shared_ptr<Primitive> ResourceHeap::CreateModel(ID3D12Device* device,
     // Create the model
     auto model = std::make_shared<Primitive>();
     model->Initialize(device, m_commandList.Get(), pipelineState, rootSignature, path);
-    m_models.emplace(model);
+    m_models.emplace(std::wstring(path), model);
 
     m_load = true;
     return model;
 
 }
 
-bool ResourceHeap::Remove(std::shared_ptr<Resource> resource)
-{
-    // Check that such a resource is managed by this, and if so, solely by this, before deleting 
-    auto it = m_resources.find(resource);
-    if (it != m_resources.end())
-    {
-        if (it->first.use_count() <= 1)
-        {
-            m_freedOffsets.push(it->second);
-            m_resources.erase(it);
-            return true;
-        }
-    }
-    return false;
-}
+
 bool ResourceHeap::Load(ID3D12CommandQueue* commandQueue)
 {
     bool load = m_load;
@@ -125,20 +108,26 @@ bool ResourceHeap::Load(ID3D12CommandQueue* commandQueue)
     return load;
 }
 
-const UINT ResourceHeap::GetFreeIndex()
+const ResourceHandle ResourceHeap::GetFreeHandle()
 {
-    // If no CBVs have been freed
-    if (m_freedOffsets.empty())
+
+    // If there are no existing freed handles to reuse
+    if (m_freeHandles.empty())
     {
-        // Get the next available free slot in the array
-        return m_resources.size();
+        // Store the next 'final' offset, representing the next never allocated offset
+        static UINT nextOffset = 0;
+        // Create a new set of handles from the next offset 
+        CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(m_heap->GetCPUDescriptorHandleForHeapStart(), nextOffset, m_heapSize);
+        CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorHandle(m_heap->GetGPUDescriptorHandleForHeapStart(), nextOffset, m_heapSize);
+        nextOffset++;
+        return ResourceHandle(cpuDescriptorHandle, gpuDescriptorHandle);
     }
-    // if CBVs have been freed, use their offsets first
-    else
-    {
-        auto index = m_freedOffsets.front();
-        m_freedOffsets.pop();
-        return index;
-    }
+
+    // Or, If there are existing freed handles to reuse
+    // Pop the first one and return it
+    ResourceHandle handle(m_freeHandles.front());
+    m_freeHandles.pop();
+    return handle;
 }
+
 

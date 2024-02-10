@@ -9,7 +9,7 @@ class ConstantBuffer;
 class SceneObject
 {
 public:
-	SceneObject(std::shared_ptr<Primitive> model, std::shared_ptr<Texture> texture, std::shared_ptr<ConstantBuffer> constantBuffer);
+	SceneObject(std::shared_ptr<Primitive> model, std::shared_ptr<Texture> texture, std::shared_ptr<ConstantBuffer> constantBuffer, std::string name);
 	virtual void Initialize();
 	virtual void Update(const float& deltaTime, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);
 	void Draw(ID3D12GraphicsCommandList* commandList);
@@ -40,11 +40,21 @@ public:
 		return DirectX::XMMatrixTranslation(m_position.x, m_position.y, m_position.z);
 	}
 
+	std::shared_ptr<Primitive> GetModel()
+	{
+		return m_model;
+	}
+
 	void SetModel(std::shared_ptr<Primitive> model)
 	{
 		m_model = model;
 	}
-	
+
+	std::shared_ptr<Texture> GetTexture()
+	{
+		return m_texture;
+	}
+
 	void SetTexture(std::shared_ptr<Texture> texture)
 	{
 		m_texture = texture;
@@ -54,10 +64,17 @@ public:
 	{
 		return m_aabb;
 	}
+
+	std::string GetName()
+	{
+		return m_name;
+	}
 protected:
 	DirectX::XMFLOAT3 m_position;
 	DirectX::XMFLOAT3 m_rotation;
 	DirectX::XMFLOAT3 m_scale;
+
+	std::string m_name;
 
 	DirectX::BoundingBox m_aabb;
 

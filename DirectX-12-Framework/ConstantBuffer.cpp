@@ -1,8 +1,8 @@
 #include "ConstantBuffer.h"
 using namespace DirectX;
 
-ConstantBuffer::ConstantBuffer(const D3D12_CPU_DESCRIPTOR_HANDLE& cbvCpuDescriptorHandle, const D3D12_GPU_DESCRIPTOR_HANDLE& cbvGpuDescriptorHandle, const UINT& cbvRootParameterIndex) :
-	Resource(cbvCpuDescriptorHandle, cbvGpuDescriptorHandle, cbvRootParameterIndex),
+ConstantBuffer::ConstantBuffer(const ResourceHandle resourceHandle, const UINT& cbvRootParameterIndex) :
+	Resource(resourceHandle, cbvRootParameterIndex),
 	m_pCbvDataBegin(nullptr),
 	m_constantBufferData()
 {
@@ -38,7 +38,7 @@ void ConstantBuffer::Initialize(ID3D12Device* device)
 		// Create the constant buffer view, i.e. formatted constant buffer data and bind it to the CBV heap
 
 		// Get a handle to the start of the shared SRV & CBV heap, which represents the free point in the heap. This will be incremented to add SRVs after CBVs to the heap.
-		device->CreateConstantBufferView(&cbvDesc, m_cpuDescriptorHandle);
+		device->CreateConstantBufferView(&cbvDesc, m_resourceHandle.cpuDescriptorHandle);
 
 
 		// Map the constant buffer and initialize it

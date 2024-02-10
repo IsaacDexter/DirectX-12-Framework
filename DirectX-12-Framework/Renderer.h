@@ -172,7 +172,7 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> CreatePipelineStateObject(ID3DBlob* pVertexShaderBlob, ID3DBlob* pPixelShaderBlob);
 
 	void InitializeGUI(HWND hWnd);
-	void UpdateGUI();
+	void UpdateGUI(std::set<std::shared_ptr<SceneObject>>& objects);
 	void DestroyGUI();
 	void RenderGUI(ID3D12GraphicsCommandList* commandList);
 

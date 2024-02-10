@@ -1,5 +1,6 @@
 #include "Renderer.h"
 #include "Window.h"
+#include "misc/cpp/imgui_stdlib.h"
 
 using namespace Microsoft::WRL;
 using namespace DirectX;
@@ -58,7 +59,7 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects)
 	    - Wait on fence
     */
     
-    UpdateGUI();
+    UpdateGUI(objects);
 
     // Put the command list into an array (of one) for execution on the queue
     if (m_resourceHeap->Load(m_commandQueue.Get()))
@@ -860,17 +861,17 @@ void Renderer::InitializeGUI(HWND hWnd)
 
     // Setup Platform/Renderer backends
     ImGui_ImplWin32_Init(hWnd);
-    auto srv = m_resourceHeap->ReserveSRV(m_device.Get());
+    auto srv = m_resourceHeap->ReserveSRV(L"");
     ImGui_ImplDX12_Init(m_device.Get(), m_frameCount, DXGI_FORMAT_R8G8B8A8_UNORM,
         m_resourceHeap->GetHeap(),
         // You'll need to designate a descriptor from your descriptor heap for Dear ImGui to use internally for its font texture's SRV
-        srv->GetCpuDescriptorHandle(),
-        srv->GetGpuDescriptorHandle()
+        srv->GetResourceHandle().cpuDescriptorHandle,
+        srv->GetResourceHandle().gpuDescriptorHandle
     );
 #endif
 }
 
-void Renderer::UpdateGUI()
+void Renderer::UpdateGUI(std::set<std::shared_ptr<SceneObject>>& objects)
 {
 #if defined (_GUI)
     // Start new Dear ImGui frame
@@ -878,7 +879,73 @@ void Renderer::UpdateGUI()
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
-    ImGui::ShowDemoWindow(); // Show demo window! :)
+    ImGui::SetNextWindowSize(ImVec2(430, 450), ImGuiCond_FirstUseEver);
+    bool open = true;
+    if (!ImGui::Begin("Scene Graph", &open))
+    {
+        ImGui::End();
+        return;
+    }
+
+
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2, 2));
+    if (ImGui::BeginTable("##split", 2, ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY))
+    {
+        ImGui::TableSetupScrollFreeze(0, 1);
+        ImGui::TableSetupColumn("Object");
+        ImGui::TableSetupColumn("Properties");
+        ImGui::TableHeadersRow();
+
+        //// Iterate placeholder objects (all the same data)
+        //for (int obj_i = 0; obj_i < 4; obj_i++)
+        //    ShowPlaceholderObject("Object", obj_i);
+        for (auto object : objects)
+        {
+            // Use object uid as identifier. Most commonly you could also use the object pointer as a base ID.
+            ImGui::PushID(object.get());
+
+            // Text and Tree nodes are less high than framed widgets, using AlignTextToFramePadding() we add vertical spacing to make the tree lines equal high.
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::AlignTextToFramePadding();
+            bool node_open = ImGui::TreeNode("Object", "%s", object->GetName().c_str());
+            ImGui::TableSetColumnIndex(1);
+
+            if (node_open)
+            {
+                ImGui::Text(object->GetName().c_str());
+                // Show the object's texture
+                {
+                    ImGui::PushID("Texture"); // Use field index as identifier.
+                    auto texture = object->GetTexture();
+                    std::string path = texture->GetPath();
+
+                    // Here we use a TreeNode to highlight on hover (we could use e.g. Selectable as well)
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::AlignTextToFramePadding();
+                    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_Bullet;
+                    ImGui::TreeNodeEx("Texture", flags, "Texture");
+
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::SetNextItemWidth(-FLT_MIN);
+                    ImGui::InputText("##value", &path);
+
+
+                    
+                    ImGui::NextColumn();
+
+                    ImGui::PopID();
+                }
+                ImGui::TreePop();
+            }
+            ImGui::PopID();
+        }
+
+        ImGui::EndTable();
+    }
+    ImGui::PopStyleVar();
+    ImGui::End();
 
 #endif
 }

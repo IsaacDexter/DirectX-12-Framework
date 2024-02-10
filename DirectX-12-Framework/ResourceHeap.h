@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <queue>
+#include <string>
 #include "Resource.h"
 #include "ConstantBuffer.h"
 #include "Texture.h"
@@ -16,10 +17,9 @@ public:
     
 
     const std::shared_ptr<Texture> CreateTexture(ID3D12Device* device, ID3D12PipelineState* pipelineState, const wchar_t* path);
-    const std::shared_ptr<Texture> ReserveSRV(ID3D12Device*);
+    const std::shared_ptr<Texture> ReserveSRV(const wchar_t* path);
     const std::shared_ptr<ConstantBuffer> CreateCBV();
     const std::shared_ptr<Primitive> CreateModel(ID3D12Device* device, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature, const wchar_t* path);
-    bool Remove(std::shared_ptr<Resource> resource);
 
     ID3D12DescriptorHeap* GetHeap()
     {
@@ -52,17 +52,18 @@ protected:
     * It would make reorganising the heap easier though.
     * I think contigous constant buffers is high priority, having a manager would let you iterate over all of them in one, which could be nice. Just Update the view and proj when needed. 
     */
-	std::unordered_map<std::shared_ptr<Resource>, UINT> m_resources;
-	std::unordered_set<std::shared_ptr<Primitive>> m_models;
+	std::unordered_map<std::wstring, std::shared_ptr<Texture>> m_textures;
+	std::unordered_map<std::wstring, std::shared_ptr<Primitive>> m_models;
+	std::unordered_set<std::shared_ptr<ConstantBuffer>> m_constantBuffers;
     /**
     * Queue of indexes that have been intentionally freed
     * These are always written to over the end of the list as it eliminates the to check if array has been exceeded
     * While a priority queue would encourage contiguous placement of resources, such contiguity cannot be expected, and this makes deletion from the array (i.e. pushing to the queue) cheaper
     */
-    std::queue<UINT> m_freedOffsets;
+    std::queue<ResourceHandle> m_freeHandles;
 
     bool m_load = false;
 
-    const UINT GetFreeIndex();
+    const ResourceHandle GetFreeHandle();
 };
 

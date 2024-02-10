@@ -19,7 +19,7 @@ void Engine::Initialize()
     auto cube = m_renderer->CreateModel(L"Assets/Cube.obj");
     for (UINT i = 0; i < m_numObjects; i++)
     {
-        auto object = std::make_shared<SceneObject>(cube, (i % 2 == 0) ? tiles : grass, m_renderer->CreateConstantBuffer());
+        auto object = std::make_shared<SceneObject>(cube, (i % 2 == 0) ? tiles : grass, m_renderer->CreateConstantBuffer(), "Object " + std::to_string(i));
         object->SetPosition(i * 2, 0.0f, 0.0f);
         m_sceneObjects.emplace(object);
     }
@@ -116,7 +116,7 @@ void Engine::OnKeyDown(WPARAM wParam)
     case 'O':
     {
         static int count = 1;
-        auto object = std::make_shared<SceneObject>(m_renderer->CreateModel(L"Assets/Pyramid.obj"), m_renderer->CreateTexture(L"Assets/Sand.dds"), m_renderer->CreateConstantBuffer());
+        auto object = std::make_shared<SceneObject>(m_renderer->CreateModel(L"Assets/Pyramid.obj"), m_renderer->CreateTexture(L"Assets/Sand.dds"), m_renderer->CreateConstantBuffer(), "New Object " + std::to_string(count));
         object->SetPosition(-count, -count, -count);
         m_sceneObjects.emplace(object);
         count++;
