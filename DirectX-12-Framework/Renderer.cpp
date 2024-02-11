@@ -1335,11 +1335,10 @@ void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objec
         // Update Model View Projection (MVP) Matrix according to camera position
 
         // Draw object
-        /*for (auto object : objects)
+        for (auto object : objects)
         {
             object->Draw(m_commandList.Get());
-            break;
-        }*/
+        }
         //RenderGUI(m_commandList.Get());
 
         // Indicate that the back buffer will now be used to present.
