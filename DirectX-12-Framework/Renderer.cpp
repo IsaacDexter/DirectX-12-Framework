@@ -120,6 +120,46 @@ void Renderer::Resize(UINT width, UINT height)
     MoveToNextFrame();
     // as the swap chain buffers have been resized, update their descriptors too
     UpdateFramebuffers();
+
+
+    // Create the render texture
+    {
+        // Describe the render texture
+        D3D12_RESOURCE_DESC textureDesc = CD3DX12_RESOURCE_DESC::Tex2D(
+            DXGI_FORMAT_R32G32B32A32_FLOAT,  // Use established DS format
+            200,  // Depth Stencil to encompass the whole screen (ensure to resize it alongside the screen.)
+            200,
+            1,  // Array size of 1
+            0,  // no MIP levels
+            1, 0,   // Sample count and quality (no Anti-Aliasing)
+            D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET // Allow a DSV to be created for the resource and allow it to handle write/read transitions
+        );
+
+        Microsoft::WRL::ComPtr<ID3D12Resource> renderTexture;
+        // Create the DSV in an implicit heap that encompasses it
+        {
+            // Upload with a default heap
+            auto uploadHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+            ThrowIfFailed(m_device->CreateCommittedResource(
+                &uploadHeapProps,
+                D3D12_HEAP_FLAG_NONE,   // Perhaps D3D12_HEAP_FLAG_DENY_NON_RT_DS_TEXTURES? https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_heap_flags
+                &textureDesc,
+                D3D12_RESOURCE_STATE_RENDER_TARGET, //We want to be able to render to this texture
+                nullptr,    // Need no depth optimized clear value
+                IID_PPV_ARGS(&renderTexture)    //Store in the renderTexture
+            ));
+        }
+
+        D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+        // Setup the description of the render target view.
+        rtvDesc.Format = textureDesc.Format;
+        rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+        rtvDesc.Texture2D.MipSlice = 0;
+
+        // Create the render target view.
+        m_rtvHeap->CreateRtv(m_device.Get(), renderTexture.Get());
+    }
+
     UpdateDepthStencilView(m_dsv, m_dsvHeap, width, height);
     // Update the size of the scissor rect
     m_scissorRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
@@ -485,11 +525,9 @@ void Renderer::CreateFramebuffers()
     // For each framebuffer
     for (UINT n = 0; n < m_framebuffers.size(); n++)
     {
-        m_framebuffers[n] = m_rtvHeap->CreateRtv();
         ID3D12Resource* resource;
         ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&resource)));
-        m_framebuffers[n]->SetResource(resource);
-        m_device->CreateRenderTargetView(resource, nullptr, m_framebuffers[n]->GetHandle().cpuDescriptorHandle);
+        m_framebuffers[n] = m_rtvHeap->CreateRtv(m_device.Get(), resource);
     }
 }
 
