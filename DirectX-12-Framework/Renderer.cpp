@@ -121,45 +121,6 @@ void Renderer::Resize(UINT width, UINT height)
     // as the swap chain buffers have been resized, update their descriptors too
     UpdateFramebuffers();
 
-
-    // Create the render texture
-    {
-        // Describe the render texture
-        D3D12_RESOURCE_DESC textureDesc = CD3DX12_RESOURCE_DESC::Tex2D(
-            DXGI_FORMAT_R32G32B32A32_FLOAT,  // Use established DS format
-            200,  // Depth Stencil to encompass the whole screen (ensure to resize it alongside the screen.)
-            200,
-            1,  // Array size of 1
-            0,  // no MIP levels
-            1, 0,   // Sample count and quality (no Anti-Aliasing)
-            D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET // Allow a DSV to be created for the resource and allow it to handle write/read transitions
-        );
-
-        Microsoft::WRL::ComPtr<ID3D12Resource> renderTexture;
-        // Create the DSV in an implicit heap that encompasses it
-        {
-            // Upload with a default heap
-            auto uploadHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-            ThrowIfFailed(m_device->CreateCommittedResource(
-                &uploadHeapProps,
-                D3D12_HEAP_FLAG_NONE,   // Perhaps D3D12_HEAP_FLAG_DENY_NON_RT_DS_TEXTURES? https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_heap_flags
-                &textureDesc,
-                D3D12_RESOURCE_STATE_RENDER_TARGET, //We want to be able to render to this texture
-                nullptr,    // Need no depth optimized clear value
-                IID_PPV_ARGS(&renderTexture)    //Store in the renderTexture
-            ));
-        }
-
-        D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
-        // Setup the description of the render target view.
-        rtvDesc.Format = textureDesc.Format;
-        rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-        rtvDesc.Texture2D.MipSlice = 0;
-
-        // Create the render target view.
-        m_rtvHeap->CreateRtv(m_device.Get(), renderTexture.Get());
-    }
-
     UpdateDepthStencilView(m_dsv, m_dsvHeap, width, height);
     // Update the size of the scissor rect
     m_scissorRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
@@ -617,7 +578,47 @@ void Renderer::InitializeAssets()
 
         m_cbvSrvUavHeap = std::make_unique<CbvSrvUavHeap>(m_device.Get(), cbvSrvUavHeapDesc, m_pipelineState.Get());
     }
-    
+    // Create the render texture
+    {
+        m_renderTextureSrv = m_cbvSrvUavHeap->ReserveSRV("Render Texture");
+        // Describe the render texture
+        D3D12_RESOURCE_DESC textureDesc = CD3DX12_RESOURCE_DESC::Tex2D(
+            DXGI_FORMAT_R8G8B8A8_UNORM,  // Use established DS format
+            200,  // Depth Stencil to encompass the whole screen (ensure to resize it alongside the screen.)
+            200,
+            1,  // Array size of 1
+            0,  // no MIP levels
+            1, 0,   // Sample count and quality (no Anti-Aliasing)
+            D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET // Allow a DSV to be created for the resource and allow it to handle write/read transitions
+        );
+
+        // Create the DSV in an implicit heap that encompasses it
+        {
+            // Upload with a default heap
+            ID3D12Resource* resource;
+            auto uploadHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+            ThrowIfFailed(m_device->CreateCommittedResource(
+                &uploadHeapProps,
+                D3D12_HEAP_FLAG_NONE,   // Perhaps D3D12_HEAP_FLAG_DENY_NON_RT_DS_TEXTURES? https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_heap_flags
+                &textureDesc,
+                D3D12_RESOURCE_STATE_COMMON, //We want to be able to render to this texture
+                nullptr,    // Need no depth optimized clear value
+                IID_PPV_ARGS(&resource)    //Store in the renderTexture
+            ));
+            m_renderTextureSrv->SetResource(resource);
+            resource->SetName(L"Render Target SRV");
+            //m_renderTextureSrv->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Grass.dds");
+        }
+
+        D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+        // Setup the description of the render target view.
+        rtvDesc.Format = textureDesc.Format;
+        rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+        rtvDesc.Texture2D.MipSlice = 0;
+
+        // Create the render target view.
+        m_renderTextureRtv = m_rtvHeap->CreateRtv(m_device.Get(), m_renderTextureSrv->GetResource());
+    }
 
     // Create command list
     // Create command list, and set it to closed state
@@ -1295,7 +1296,7 @@ void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objec
     // Set necessary state.
     m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
     // Set command list shader resource view and constant buffer view
-    ID3D12DescriptorHeap* ppHeaps[] = { m_cbvSrvUavHeap->GetDescriptorHeap(), m_samplerHeap.Get()};
+    ID3D12DescriptorHeap* ppHeaps[] = { m_cbvSrvUavHeap->GetDescriptorHeap(), m_samplerHeap.Get() };
     m_commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
     // Describe how samplers are laid out to GPU
@@ -1304,45 +1305,83 @@ void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objec
     m_commandList->RSSetViewports(1, &m_viewport);
     m_commandList->RSSetScissorRects(1, &m_scissorRect);
 
-    // Indicate that the back buffer will be used as a render target.
-    auto renderTarget = m_framebuffers[m_frameIndex];
-
-    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget->GetResource(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
-    m_commandList->ResourceBarrier(1, &barrier);
-
-    // Set CPU handles for Render Target Views (RTVs) and Depth Stencil Views (DSVs) heaps
-    auto rtvHandle = renderTarget->GetHandle().cpuDescriptorHandle;
-    CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
-    m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
-
-    // Record commands.
-    // Clear the RTVs and DSVs
-    const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
-    m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
-    m_commandList->ClearDepthStencilView(
-        dsvHandle,  // Aforementioned handle to DSV heap
-        D3D12_CLEAR_FLAG_DEPTH, // Clear just the depth, not the stencil
-        1.0f,   // Value to clear the depth to  
-        0,  // Value to clear the stencil view
-        0, nullptr  // Clear the whole view. Set these to only clear specific rects.
-    );
-    // Update Model View Projection (MVP) Matrix according to camera position
-    
-    // Draw object
-    for (auto object : objects)
+    // Indicate that render texture will be used as the render target
     {
-        object->Draw(m_commandList.Get());
+        auto renderTarget = m_renderTextureRtv;
+
+        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget->GetResource(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+        m_commandList->ResourceBarrier(1, &barrier);
+
+        // Set CPU handles for Render Target Views (RTVs) and Depth Stencil Views (DSVs) heaps
+        auto rtvHandle = renderTarget->GetHandle().cpuDescriptorHandle;
+        CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
+        m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
+
+        // Record commands.
+        // Clear the RTVs and DSVs
+        const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
+        m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+        m_commandList->ClearDepthStencilView(
+            dsvHandle,  // Aforementioned handle to DSV heap
+            D3D12_CLEAR_FLAG_DEPTH, // Clear just the depth, not the stencil
+            1.0f,   // Value to clear the depth to  
+            0,  // Value to clear the stencil view
+            0, nullptr  // Clear the whole view. Set these to only clear specific rects.
+        );
+        // Update Model View Projection (MVP) Matrix according to camera position
+
+        // Draw object
+        /*for (auto object : objects)
+        {
+            object->Draw(m_commandList.Get());
+            break;
+        }*/
+
+        // Indicate that the back buffer will now be used to present.
+        barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+        m_commandList->ResourceBarrier(1, &barrier);
     }
-    
+
+    // Indicate that the back buffer will be used as a render target.
+    {
+        auto renderTarget = m_framebuffers[m_frameIndex];
+
+        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget->GetResource(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+        m_commandList->ResourceBarrier(1, &barrier);
+
+        // Set CPU handles for Render Target Views (RTVs) and Depth Stencil Views (DSVs) heaps
+        auto rtvHandle = renderTarget->GetHandle().cpuDescriptorHandle;
+        CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
+        m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
+
+        // Record commands.
+        // Clear the RTVs and DSVs
+        const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
+        m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+        m_commandList->ClearDepthStencilView(
+            dsvHandle,  // Aforementioned handle to DSV heap
+            D3D12_CLEAR_FLAG_DEPTH, // Clear just the depth, not the stencil
+            1.0f,   // Value to clear the depth to  
+            0,  // Value to clear the stencil view
+            0, nullptr  // Clear the whole view. Set these to only clear specific rects.
+        );
+        // Update Model View Projection (MVP) Matrix according to camera position
+
+        // Draw object
+        for (auto object : objects)
+        {
+            object->Draw(m_commandList.Get());
+        }
 
 
-    RenderGUI(m_commandList.Get());
-    
 
-    // Indicate that the back buffer will now be used to present.
-    barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
-    m_commandList->ResourceBarrier(1, &barrier);
+        RenderGUI(m_commandList.Get());
 
+
+        // Indicate that the back buffer will now be used to present.
+        barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+        m_commandList->ResourceBarrier(1, &barrier);
+    }
     
 
     ThrowIfFailed(m_commandList->Close());

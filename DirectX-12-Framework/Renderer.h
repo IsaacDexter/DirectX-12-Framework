@@ -71,7 +71,9 @@ private:
 
 	std::unique_ptr<CbvSrvUavHeap> m_cbvSrvUavHeap;
 	std::unique_ptr<RtvHeap> m_rtvHeap;
-	
+	std::shared_ptr<Texture> m_renderTextureSrv;
+	std::shared_ptr<Rtv> m_renderTextureRtv;
+
 
 #pragma endregion
 
