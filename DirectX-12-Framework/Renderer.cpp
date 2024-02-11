@@ -15,7 +15,7 @@ Renderer::Renderer() :
     
 }
 
-void Renderer::Initialize(HWND hWnd, UINT width, UINT height)
+void Renderer::Initialize(HWND hWnd, const UINT width, const UINT height)
 {
     m_frameIndex = 0;
     m_viewport = { 0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height) };
@@ -25,7 +25,7 @@ void Renderer::Initialize(HWND hWnd, UINT width, UINT height)
 	// Initialize Pipeline
 	// Initialize Assets
 	InitializePipeline(hWnd, width, height);
-	InitializeAssets();
+	InitializeAssets(width, height);
     InitializeGUI(hWnd);
 
 }
@@ -157,7 +157,7 @@ std::shared_ptr<ConstantBuffer> Renderer::CreateConstantBuffer()
 - Create frame resources
 - Create command allocator
 */
-void Renderer::InitializePipeline(HWND hWnd, UINT width, UINT height)
+void Renderer::InitializePipeline(HWND hWnd, const UINT width, const UINT height)
 {
 #if defined (_DEBUG)
     {
@@ -531,7 +531,7 @@ bool Renderer::CheckTearingSupport()
     return allowTearing;
 }
 
-void Renderer::InitializeAssets()
+void Renderer::InitializeAssets(const UINT width, const UINT height)
 {
     /*
     - Create empty *root signature*
@@ -584,8 +584,8 @@ void Renderer::InitializeAssets()
         // Describe the render texture
         D3D12_RESOURCE_DESC textureDesc = CD3DX12_RESOURCE_DESC::Tex2D(
             DXGI_FORMAT_R8G8B8A8_UNORM,  // Use established DS format
-            200,  // Depth Stencil to encompass the whole screen (ensure to resize it alongside the screen.)
-            200,
+            width,  // Depth Stencil to encompass the whole screen (ensure to resize it alongside the screen.)
+            height,
             1,  // Array size of 1
             0,  // no MIP levels
             1, 0,   // Sample count and quality (no Anti-Aliasing)
@@ -618,6 +618,9 @@ void Renderer::InitializeAssets()
 
         // Create the render target view.
         m_renderTextureRtv = m_rtvHeap->CreateRtv(m_device.Get(), m_renderTextureSrv->GetResource());
+        /*ID3D12Resource* resource;
+        ThrowIfFailed(m_swapChain->GetBuffer(0, IID_PPV_ARGS(&resource)));
+        m_renderTextureRtv = m_rtvHeap->CreateRtv(m_device.Get(), resource);*/
     }
 
     // Create command list
@@ -867,9 +870,10 @@ Microsoft::WRL::ComPtr<ID3D12PipelineState> Renderer::CreatePipelineStateObject(
     // define render target count and render target formats
 
     CD3DX12_RT_FORMAT_ARRAY rtvFormats;
-    rtvFormats.NumRenderTargets = 1;    // define render target count
+    rtvFormats.NumRenderTargets = 2;    // define render target count
     std::fill(std::begin(rtvFormats.RTFormats), std::end(rtvFormats.RTFormats), DXGI_FORMAT_UNKNOWN);   // set to unknown format for unused render targets
     rtvFormats.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;   // define render target format for the first (only) render target
+    rtvFormats.RTFormats[1] = DXGI_FORMAT_R8G8B8A8_UNORM;   // define render target format for the first (only) render target
 
     // Default sample mode without anti aliasing
     DXGI_SAMPLE_DESC sampleDesc = {};
@@ -1319,7 +1323,7 @@ void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objec
 
         // Record commands.
         // Clear the RTVs and DSVs
-        const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
+        const float clearColor[] = { 0.5f, 0.1f, 0.55f, 1.0f };
         m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
         m_commandList->ClearDepthStencilView(
             dsvHandle,  // Aforementioned handle to DSV heap
@@ -1336,6 +1340,7 @@ void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objec
             object->Draw(m_commandList.Get());
             break;
         }*/
+        //RenderGUI(m_commandList.Get());
 
         // Indicate that the back buffer will now be used to present.
         barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);

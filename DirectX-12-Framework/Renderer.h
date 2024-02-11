@@ -30,11 +30,11 @@ public:
 		- Render
 	3. Destroy
 	*/
-	void Initialize(HWND hWnd, UINT width, UINT height);
+	void Initialize(HWND hWnd, const UINT width, const UINT height);
 	void Update();
 	void Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject);
 	void Destroy();
-	void Resize(UINT width, UINT height);
+	void Resize(const UINT width, const UINT height);
 
 	std::shared_ptr<Texture> CreateTexture(const wchar_t* path, std::string name);
 	std::shared_ptr<Primitive> CreateModel(const wchar_t* path, std::string name);
@@ -89,7 +89,7 @@ private:
 private:
 #pragma region Initialization
 
-	void InitializePipeline(HWND hWnd, UINT width, UINT height);
+	void InitializePipeline(HWND hWnd, const UINT width, const UINT height);
 
 	Microsoft::WRL::ComPtr<ID3D12Debug> EnableDebugLayer();
 	/**
@@ -144,7 +144,7 @@ private:
 	*/
 	bool CheckTearingSupport();
 
-	void InitializeAssets();
+	void InitializeAssets(const UINT width, const UINT height);
 
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> CreateRootSignature();
 
