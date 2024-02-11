@@ -12,8 +12,7 @@
 class DescriptorHeap
 {
 public:
-    DescriptorHeap(ID3D12Device* device, ID3D12PipelineState* pipelineState);
-    bool Load(ID3D12CommandQueue* commandQueue);
+    DescriptorHeap(ID3D12Device* device, const D3D12_DESCRIPTOR_HEAP_DESC desc);
     ID3D12DescriptorHeap* GetDescriptorHeap()
     {
         return m_descriptorHeap.Get();
@@ -26,12 +25,8 @@ public:
         Sampler,
     };
 protected:
-    virtual void CreateHeap(ID3D12Device* device) = 0;
-    void CreateCommandList(ID3D12Device* device, ID3D12PipelineState* pipelineState);
+    virtual void CreateHeap(ID3D12Device* device, const D3D12_DESCRIPTOR_HEAP_DESC desc);
 
-	// Shader resource view heap for accessing data in a resource (texture)
-    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_commandList;
-    Microsoft::WRL::ComPtr<ID3D12CommandAllocator> m_commandAllocator;
 
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_descriptorHeap;
     UINT m_descriptorSize;
@@ -42,9 +37,6 @@ protected:
     * While a priority queue would encourage contiguous placement of resources, such contiguity cannot be expected, and this makes deletion from the array (i.e. pushing to the queue) cheaper
     */
     std::queue<ResourceHandle> m_freeHandles;
-
-    bool m_load = false;
-    bool m_resetRequired = false;
 
     const ResourceHandle GetFreeHandle();
 };

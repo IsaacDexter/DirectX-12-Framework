@@ -175,6 +175,7 @@
     <ClInclude Include="Primitive.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="Engine.h" />
+    <ClInclude Include="RtvHeap.h" />
     <ClInclude Include="SceneObject.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="Texture.h" />
@@ -199,6 +200,7 @@
     <ClCompile Include="Primitive.cpp" />
     <ClCompile Include="Resource.cpp" />
     <ClCompile Include="Engine.cpp" />
+    <ClCompile Include="RtvHeap.cpp" />
     <ClCompile Include="SceneObject.cpp" />
     <ClCompile Include="Texture.cpp" />
     <ClCompile Include="DescriptorHeap.cpp" />

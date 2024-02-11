@@ -9,7 +9,7 @@ using namespace DirectX;
 
 Renderer::Renderer() :
     m_fenceValues{},
-    m_renderTargets {},
+    m_framebuffers {},
     m_commandAllocators{}
 {
     
@@ -22,7 +22,6 @@ void Renderer::Initialize(HWND hWnd, UINT width, UINT height)
     m_viewport.MinDepth = 0.0f;
     m_viewport.MaxDepth = 1.0f;
     m_scissorRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
-    m_rtvDescriptorSize = 0;
 	// Initialize Pipeline
 	// Initialize Assets
 	InitializePipeline(hWnd, width, height);
@@ -101,7 +100,7 @@ void Renderer::Resize(UINT width, UINT height)
     for (int i = 0; i < m_frameCount; ++i)
     {
         // relesase references to renderTargets before resizing
-        m_renderTargets[i].Reset();
+        m_framebuffers[i]->Reset();
     }
 
 
@@ -120,7 +119,7 @@ void Renderer::Resize(UINT width, UINT height)
     // update the back buffer index known by the application, as it may not be the same as the resized version
     MoveToNextFrame();
     // as the swap chain buffers have been resized, update their descriptors too
-    UpdateRenderTargetViews(m_device, m_rtvHeap, m_swapChain, m_renderTargets);
+    UpdateFramebuffers();
     UpdateDepthStencilView(m_dsv, m_dsvHeap, width, height);
     // Update the size of the scissor rect
     m_scissorRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
@@ -182,20 +181,6 @@ void Renderer::InitializePipeline(HWND hWnd, UINT width, UINT height)
 
     // Create descriptor heaps
     {
-        // Describe and create Render Target View (RTV) descriptor heap
-        {
-            D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
-            rtvHeapDesc.NumDescriptors = m_frameCount;
-            rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;  //RTV type
-            rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;    // This heap needs no binding to pipeline
-            ThrowIfFailed(m_device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&m_rtvHeap)));
-            m_rtvHeap->SetName(L"m_rtvHeap");
-
-            // How much to offset the shared RTV heap by to get the next available handle
-            m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-        }
-        
-
         // Describe and create the Depth Stencil View (DSV) descriptor heap
         {
             D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
@@ -222,8 +207,18 @@ void Renderer::InitializePipeline(HWND hWnd, UINT width, UINT height)
     UpdateDepthStencilView(m_dsv, m_dsvHeap, width, height);
 
 
-    // Create the render target views
-    UpdateRenderTargetViews(m_device, m_rtvHeap, m_swapChain, m_renderTargets);
+    // Create the swapChain
+    {
+
+        D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
+        rtvHeapDesc.NumDescriptors = 8;
+        rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;  //RTV type
+        rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;    // This heap needs no binding to pipeline
+        m_rtvHeap = std::make_unique<RtvHeap>(m_device.Get(), rtvHeapDesc);
+    }
+
+    // Create the swapChain
+    CreateFramebuffers();
 
 
 
@@ -485,18 +480,29 @@ Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> Renderer::CreateDescriptorHeap(Micr
     return descriptorHeap;
 }
 
-void Renderer::UpdateRenderTargetViews(Microsoft::WRL::ComPtr<ID3D12Device4> device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> rtvHeap, Microsoft::WRL::ComPtr<IDXGISwapChain3> swapChain, std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Renderer::m_frameCount>& renderTargets)
+void Renderer::CreateFramebuffers()
 {
-    auto rtvDescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-
-    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(rtvHeap->GetCPUDescriptorHandleForHeapStart());
-
-    // Create a RTV for each frame.
-    for (UINT n = 0; n < m_frameCount; n++)
+    // For each framebuffer
+    for (UINT n = 0; n < m_framebuffers.size(); n++)
     {
-        ThrowIfFailed(swapChain->GetBuffer(n, IID_PPV_ARGS(&renderTargets[n])));
-        device->CreateRenderTargetView(renderTargets[n].Get(), nullptr, rtvHandle);
-        rtvHandle.Offset(1, rtvDescriptorSize);
+        m_framebuffers[n] = m_rtvHeap->CreateRtv();
+        ID3D12Resource* resource;
+        ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&resource)));
+        m_framebuffers[n]->SetResource(resource);
+        m_device->CreateRenderTargetView(resource, nullptr, m_framebuffers[n]->GetHandle().cpuDescriptorHandle);
+    }
+}
+
+void Renderer::UpdateFramebuffers()
+{
+    // For each framebuffer
+    for (UINT n = 0; n < m_framebuffers.size(); n++)
+    {
+        
+        ID3D12Resource* resource;
+        ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&resource)));
+        m_framebuffers[n]->SetResource(resource);
+        m_device->CreateRenderTargetView(resource, nullptr, m_framebuffers[n]->GetHandle().cpuDescriptorHandle);
     }
 }
 
@@ -559,7 +565,21 @@ void Renderer::InitializeAssets()
     // Create pipeline state object
     m_pipelineState = CreatePipelineStateObject(vertexShaderBlob.Get(), pixelShaderBlob.Get());
 
-    m_cbvSrvUavHeap = std::make_unique<CbvSrvUavHeap>(m_device.Get(), m_pipelineState.Get());
+    // Create CBV SRV UAV joint heap
+    {
+        // Describe and create a Shader Resource View (SRV) heap for the texture.
+        // This heap also contains the Constant Buffer Views. These are in the same heap because
+        // CBVs, SRVs, and UAVs can be combined into a single descriptor table.
+        // This means the descriptor heap needn't be changed in the command list, which is slow and rarely used.
+        // https://learn.microsoft.com/en-us/windows/win32/direct3d12/resource-binding-flow-of-control
+        D3D12_DESCRIPTOR_HEAP_DESC cbvSrvUavHeapDesc = {};
+        cbvSrvUavHeapDesc.NumDescriptors = 1024;
+        cbvSrvUavHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;  // SRV type
+        cbvSrvUavHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  // Allow this heap to be bound to the pipeline
+
+        m_cbvSrvUavHeap = std::make_unique<CbvSrvUavHeap>(m_device.Get(), cbvSrvUavHeapDesc, m_pipelineState.Get());
+    }
+    
 
     // Create command list
     // Create command list, and set it to closed state
@@ -1247,11 +1267,13 @@ void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objec
     m_commandList->RSSetScissorRects(1, &m_scissorRect);
 
     // Indicate that the back buffer will be used as a render target.
-    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+    auto renderTarget = m_framebuffers[m_frameIndex];
+
+    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget->GetResource(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
     m_commandList->ResourceBarrier(1, &barrier);
 
     // Set CPU handles for Render Target Views (RTVs) and Depth Stencil Views (DSVs) heaps
-    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex, m_rtvDescriptorSize);
+    auto rtvHandle = renderTarget->GetHandle().cpuDescriptorHandle;
     CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
     m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
 
@@ -1280,7 +1302,7 @@ void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objec
     
 
     // Indicate that the back buffer will now be used to present.
-    barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+    barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
     m_commandList->ResourceBarrier(1, &barrier);
 
     

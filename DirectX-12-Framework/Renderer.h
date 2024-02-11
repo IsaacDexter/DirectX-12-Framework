@@ -15,6 +15,7 @@
 #include "Texture.h"
 #include "ConstantBuffer.h"
 #include "CbvSrvUavHeap.h"
+#include "RtvHeap.h"
 #include "SceneObject.h"
 
 class Renderer
@@ -48,16 +49,14 @@ private:
 	D3D12_RECT m_scissorRect;
 	Microsoft::WRL::ComPtr<IDXGISwapChain3> m_swapChain;
 	Microsoft::WRL::ComPtr<ID3D12Device4> m_device;
-	std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Renderer::m_frameCount> m_renderTargets;
+	// I think this should be called m_frameBuffers, but wikipedia says its just one word. Go figure.
+	std::array<std::shared_ptr<Rtv>, Renderer::m_frameCount> m_framebuffers;
 	std::array<Microsoft::WRL::ComPtr<ID3D12CommandAllocator>, Renderer::m_frameCount > m_commandAllocators;
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_commandList;
 	Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_commandQueue;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_dsv;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_rootSignature;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pipelineState;
-
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
-	UINT m_rtvDescriptorSize;
 
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_samplerHeap;
@@ -71,6 +70,7 @@ private:
 
 
 	std::unique_ptr<CbvSrvUavHeap> m_cbvSrvUavHeap;
+	std::unique_ptr<RtvHeap> m_rtvHeap;
 	
 
 #pragma endregion
@@ -133,7 +133,8 @@ private:
 	*/
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(Microsoft::WRL::ComPtr<ID3D12Device4> device, const D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors, UINT &descriptorSize);
 
-	void UpdateRenderTargetViews(Microsoft::WRL::ComPtr<ID3D12Device4> device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> rtvHeap, Microsoft::WRL::ComPtr<IDXGISwapChain3> swapChain, std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Renderer::m_frameCount>& renderTargets);
+	void CreateFramebuffers();
+	void UpdateFramebuffers();
 
 	/**
 	* Check if screen tearing should be allowed for variable refresh displays
