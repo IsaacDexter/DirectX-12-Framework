@@ -62,7 +62,7 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shar
     UpdateGUI(objects, selectedObject);
 
     // Put the command list into an array (of one) for execution on the queue
-    if (m_resourceHeap->Load(m_commandQueue.Get()))
+    if (m_cbvSrvUavHeap->Load(m_commandQueue.Get()))
         WaitForGpu();
 
 
@@ -132,17 +132,17 @@ void Renderer::Resize(UINT width, UINT height)
 
 std::shared_ptr<Texture> Renderer::CreateTexture(const wchar_t* path, std::string name)
 {
-    return m_resourceHeap->CreateTexture(m_device.Get(), m_pipelineState.Get(), path, name);
+    return m_cbvSrvUavHeap->CreateTexture(m_device.Get(), m_pipelineState.Get(), path, name);
 }
 
 std::shared_ptr<Primitive> Renderer::CreateModel(const wchar_t* path, std::string name)
 {
-    return m_resourceHeap->CreateModel(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get(), path, name);
+    return m_cbvSrvUavHeap->CreateModel(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get(), path, name);
 }
 
 std::shared_ptr<ConstantBuffer> Renderer::CreateConstantBuffer()
 {
-    auto constantBuffer = m_resourceHeap->CreateCBV();
+    auto constantBuffer = m_cbvSrvUavHeap->CreateCBV();
     constantBuffer->Initialize(m_device.Get());
     return constantBuffer;
 }
@@ -195,6 +195,7 @@ void Renderer::InitializePipeline(HWND hWnd, UINT width, UINT height)
             m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
         }
         
+
         // Describe and create the Depth Stencil View (DSV) descriptor heap
         {
             D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
@@ -558,6 +559,8 @@ void Renderer::InitializeAssets()
     // Create pipeline state object
     m_pipelineState = CreatePipelineStateObject(vertexShaderBlob.Get(), pixelShaderBlob.Get());
 
+    m_cbvSrvUavHeap = std::make_unique<CbvSrvUavHeap>(m_device.Get(), m_pipelineState.Get());
+
     // Create command list
     // Create command list, and set it to closed state
     ThrowIfFailed(m_device->CreateCommandList(
@@ -568,9 +571,6 @@ void Renderer::InitializeAssets()
         IID_PPV_ARGS(&m_commandList)
     ), "Failed to create command list.\n");
 
-
-    m_resourceHeap = std::make_unique<ResourceHeap>();
-    m_resourceHeap->Initialize(m_device.Get(), m_pipelineState.Get());
 
     
     CreateSampler();
@@ -602,7 +602,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRootSignature()
     // Describe range of descriptor heap encompassed by descriptor table
     CD3DX12_DESCRIPTOR_RANGE1 ranges[3] = {};
     // CBV range
-    ranges[ResourceHeap::RootParameterIndices::CBV].Init(
+    ranges[DescriptorHeap::RootParameterIndices::CBV].Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_CBV,    // type of resources within the range
         1,  // number of descriptors in the range
         0,  // base shader register in the range
@@ -610,7 +610,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRootSignature()
         D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC // Descriptors and data are static and will not change (as they're loaded textures)
     );
     // SRV range
-    ranges[ResourceHeap::RootParameterIndices::SRV].Init(
+    ranges[DescriptorHeap::RootParameterIndices::SRV].Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_SRV,    // type of resources within the range
         1,  // number of descriptors in the range
         0,  // base shader register in the range
@@ -618,7 +618,7 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRootSignature()
         D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC // Descriptors and data are static and will not change (as they're loaded textures)
     );
     // Sampler range
-    ranges[ResourceHeap::RootParameterIndices::Sampler].Init(
+    ranges[DescriptorHeap::RootParameterIndices::Sampler].Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER,    // Samplers lie within this range
         1,  // Just one of them
         0   // Bound to the base register
@@ -628,21 +628,21 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRootSignature()
     // Describe layout of descriptor tables to the root signature based on ranges
     CD3DX12_ROOT_PARAMETER1 rootParameters[3] = {};
     // CBV root parameters
-    rootParameters[ResourceHeap::RootParameterIndices::CBV].InitAsDescriptorTable(
+    rootParameters[DescriptorHeap::RootParameterIndices::CBV].InitAsDescriptorTable(
         1,  // number of ranges in this table
-        &ranges[ResourceHeap::RootParameterIndices::CBV], // Descriptor range specified already 
+        &ranges[DescriptorHeap::RootParameterIndices::CBV], // Descriptor range specified already 
         D3D12_SHADER_VISIBILITY_VERTEX   // Specify that the vertex shader can access these textures
     );
     // SRV root parameters
-    rootParameters[ResourceHeap::RootParameterIndices::SRV].InitAsDescriptorTable(
+    rootParameters[DescriptorHeap::RootParameterIndices::SRV].InitAsDescriptorTable(
         1,  // number of ranges in this table
-        &ranges[ResourceHeap::RootParameterIndices::SRV], // Descriptor range specified already 
+        &ranges[DescriptorHeap::RootParameterIndices::SRV], // Descriptor range specified already 
         D3D12_SHADER_VISIBILITY_PIXEL   // Specify that the pixel shader can access these textures
     );
     // Describe sampler descriptor table
-    rootParameters[ResourceHeap::RootParameterIndices::Sampler].InitAsDescriptorTable(
+    rootParameters[DescriptorHeap::RootParameterIndices::Sampler].InitAsDescriptorTable(
         1,  // Number of ranges in this table
-        &ranges[ResourceHeap::RootParameterIndices::Sampler], // Said descriptor ranges
+        &ranges[DescriptorHeap::RootParameterIndices::Sampler], // Said descriptor ranges
         D3D12_SHADER_VISIBILITY_PIXEL   // Only pixel shader need access sampler
     );
 
@@ -862,9 +862,9 @@ void Renderer::InitializeGUI(HWND hWnd)
 
     // Setup Platform/Renderer backends
     ImGui_ImplWin32_Init(hWnd);
-    auto srv = m_resourceHeap->ReserveSRV("GUI");
+    auto srv = m_cbvSrvUavHeap->ReserveSRV("GUI");
     ImGui_ImplDX12_Init(m_device.Get(), m_frameCount, DXGI_FORMAT_R8G8B8A8_UNORM,
-        m_resourceHeap->GetHeap(),
+        m_cbvSrvUavHeap->GetDescriptorHeap(),
         // You'll need to designate a descriptor from your descriptor heap for Dear ImGui to use internally for its font texture's SRV
         srv->GetResourceHandle().cpuDescriptorHandle,
         srv->GetResourceHandle().gpuDescriptorHandle
@@ -999,7 +999,7 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
             }
             if (ImGui::BeginCombo("##Texture", name.c_str()))
             {
-                for (auto texture : m_resourceHeap->m_textures)
+                for (auto texture : m_cbvSrvUavHeap->m_textures)
                 {
                     const bool is_selected = (selectedObject->GetTexture() == texture.second);
                     if (ImGui::Selectable(texture.first.c_str(), is_selected))
@@ -1040,7 +1040,7 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
                         pathChanged &= !path.empty();
                         ImGui::InputTextWithHint("##TextureName", "Name...", &name);
                         nameValid = !name.empty();
-                        nameValid &= !m_resourceHeap->m_textures.contains(name);
+                        nameValid &= !m_cbvSrvUavHeap->m_textures.contains(name);
 
                         ImGui::BeginDisabled(!(pathChanged && nameValid));
                         if (ImGui::Button("Load"))
@@ -1081,7 +1081,7 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
             }
             if (ImGui::BeginCombo("##Model", name.c_str()))
             {
-                for (auto model : m_resourceHeap->m_models)
+                for (auto model : m_cbvSrvUavHeap->m_models)
                 {
                     const bool is_selected = (selectedObject->GetModel() == model.second);
                     if (ImGui::Selectable(model.first.c_str(), is_selected))
@@ -1125,7 +1125,7 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
                         ImGui::InputTextWithHint("##ModelName", "Name...", &name);
                         // Ensure the name isn't naught and that it doesn't already exist
                         nameValid = !name.empty();
-                        nameValid &= !m_resourceHeap->m_models.contains(name);
+                        nameValid &= !m_cbvSrvUavHeap->m_models.contains(name);
 
                         ImGui::BeginDisabled(!(pathChanged && nameValid));
                         if (ImGui::Button("Load"))
@@ -1237,11 +1237,11 @@ void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objec
     // Set necessary state.
     m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
     // Set command list shader resource view and constant buffer view
-    ID3D12DescriptorHeap* ppHeaps[] = { m_resourceHeap->GetHeap(), m_samplerHeap.Get()};
+    ID3D12DescriptorHeap* ppHeaps[] = { m_cbvSrvUavHeap->GetDescriptorHeap(), m_samplerHeap.Get()};
     m_commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
     // Describe how samplers are laid out to GPU
-    m_commandList->SetGraphicsRootDescriptorTable(ResourceHeap::RootParameterIndices::Sampler, m_samplerHeap->GetGPUDescriptorHandleForHeapStart());
+    m_commandList->SetGraphicsRootDescriptorTable(DescriptorHeap::RootParameterIndices::Sampler, m_samplerHeap->GetGPUDescriptorHandleForHeapStart());
 
     m_commandList->RSSetViewports(1, &m_viewport);
     m_commandList->RSSetScissorRects(1, &m_scissorRect);

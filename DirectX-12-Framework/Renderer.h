@@ -14,7 +14,7 @@
 #include "Primitive.h"
 #include "Texture.h"
 #include "ConstantBuffer.h"
-#include "ResourceHeap.h"
+#include "CbvSrvUavHeap.h"
 #include "SceneObject.h"
 
 class Renderer
@@ -50,14 +50,19 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Device4> m_device;
 	std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Renderer::m_frameCount> m_renderTargets;
 	std::array<Microsoft::WRL::ComPtr<ID3D12CommandAllocator>, Renderer::m_frameCount > m_commandAllocators;
-	Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_commandQueue;
-	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_rootSignature;
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
-	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pipelineState;
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_commandList;
+	Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_commandQueue;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_dsv;
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_rootSignature;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pipelineState;
 
-
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
 	UINT m_rtvDescriptorSize;
+
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_samplerHeap;
+
+
 	bool m_useWarpDevice = false;
 
 #pragma endregion
@@ -65,21 +70,7 @@ private:
 #pragma region Resources
 
 
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_dsv;
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_samplerHeap;
-	std::unique_ptr<ResourceHeap> m_resourceHeap;
-
-	enum Descriptors
-	{
-		Object1,
-		Object2,
-		Tiles,
-		Grass,
-		Sand,
-		GUI,
-		Count,
-	};
+	std::unique_ptr<CbvSrvUavHeap> m_cbvSrvUavHeap;
 	
 
 #pragma endregion
