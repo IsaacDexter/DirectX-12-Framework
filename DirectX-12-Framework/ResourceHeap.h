@@ -14,17 +14,11 @@ class ResourceHeap
 public:
     ResourceHeap();
     void Initialize(ID3D12Device* device, ID3D12PipelineState* pipelineState);
-    const std::shared_ptr<Texture> CreateTexture(ID3D12Device* device, ID3D12PipelineState* pipelineState, const wchar_t* path, std::string name);
-    
 
-    const std::shared_ptr<Texture> ReserveSRV(std::string name);
-    const std::shared_ptr<ConstantBuffer> CreateCBV();
+    const std::shared_ptr<Texture> CreateTexture(ID3D12Device* device, ID3D12DescriptorHeap* srvHeap, UINT srvDescriptorSize, ID3D12PipelineState* pipelineState, const wchar_t* path, std::string name);
+    const std::shared_ptr<Texture> ReserveSRV(ID3D12DescriptorHeap* srvHeap, UINT srvDescriptorSize, std::string name);
+    const std::shared_ptr<ConstantBuffer> CreateCBV(ID3D12DescriptorHeap* cbvHeap, UINT cbvDescriptorSize);
     const std::shared_ptr<Primitive> CreateModel(ID3D12Device* device, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature, const wchar_t* path, std::string name);
-
-    ID3D12DescriptorHeap* GetHeap()
-    {
-        return m_heap.Get();
-    }
 
     bool Load(ID3D12CommandQueue* commandQueue);
     
@@ -38,11 +32,8 @@ public:
 protected:
     friend class Renderer;
 	// Shader resource view heap for accessing data in a resource (texture)
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_heap;
     Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_commandList;
     Microsoft::WRL::ComPtr<ID3D12CommandAllocator> m_commandAllocator;
-	// How much to offset the shared SRV/SBV heap by to get the next available handle
-	UINT m_heapSize;
     /** 
     * std::array could be useful for contiguous memory with constant buffer views and shader resource views stored acontiguously in memory
     * std::unordered_map and vector are practically the same with UINT 
@@ -65,6 +56,6 @@ protected:
     bool m_load = false;
     bool m_resetRequired = false;
 
-    const ResourceHandle GetFreeHandle();
+    const ResourceHandle GetFreeHandle(ID3D12DescriptorHeap* descriptorHeap, UINT descriptorSize);
 };
 

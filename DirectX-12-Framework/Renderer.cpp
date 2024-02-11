@@ -132,7 +132,7 @@ void Renderer::Resize(UINT width, UINT height)
 
 std::shared_ptr<Texture> Renderer::CreateTexture(const wchar_t* path, std::string name)
 {
-    return m_resourceHeap->CreateTexture(m_device.Get(), m_pipelineState.Get(), path, name);
+    return m_resourceHeap->CreateTexture(m_device.Get(),m_srvCbvHeap.Get(), m_srvCbvDescriptorSize, m_pipelineState.Get(), path, name);
 }
 
 std::shared_ptr<Primitive> Renderer::CreateModel(const wchar_t* path, std::string name)
@@ -142,7 +142,7 @@ std::shared_ptr<Primitive> Renderer::CreateModel(const wchar_t* path, std::strin
 
 std::shared_ptr<ConstantBuffer> Renderer::CreateConstantBuffer()
 {
-    auto constantBuffer = m_resourceHeap->CreateCBV();
+    auto constantBuffer = m_resourceHeap->CreateCBV(m_srvCbvHeap.Get(), m_srvCbvDescriptorSize);
     constantBuffer->Initialize(m_device.Get());
     return constantBuffer;
 }
@@ -194,7 +194,24 @@ void Renderer::InitializePipeline(HWND hWnd, UINT width, UINT height)
             // How much to offset the shared RTV heap by to get the next available handle
             m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
         }
-        
+        // Describe and create a Shader Resource View (SRV) heap for the texture.
+        {
+            // This heap also contains the Constant Buffer Views. These are in the same heap because
+            // CBVs, SRVs, and UAVs can be combined into a single descriptor table.
+            // This means the descriptor heap needn't be changed in the command list, which is slow and rarely used.
+            // https://learn.microsoft.com/en-us/windows/win32/direct3d12/resource-binding-flow-of-control
+
+            D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
+            srvHeapDesc.NumDescriptors = 1024;
+            srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;  // SRV type
+            srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  // Allow this heap to be bound to the pipeline
+            ThrowIfFailed(m_device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_srvCbvHeap)));
+            m_srvCbvHeap->SetName(L"m_srvCbvHeap");
+
+            // How much to offset the shared SRV/SBV heap by to get the next available handle
+            m_srvCbvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        }
+
         // Describe and create the Depth Stencil View (DSV) descriptor heap
         {
             D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
@@ -862,9 +879,9 @@ void Renderer::InitializeGUI(HWND hWnd)
 
     // Setup Platform/Renderer backends
     ImGui_ImplWin32_Init(hWnd);
-    auto srv = m_resourceHeap->ReserveSRV("GUI");
+    auto srv = m_resourceHeap->ReserveSRV(m_srvCbvHeap.Get(), m_srvCbvDescriptorSize, "GUI");
     ImGui_ImplDX12_Init(m_device.Get(), m_frameCount, DXGI_FORMAT_R8G8B8A8_UNORM,
-        m_resourceHeap->GetHeap(),
+        m_srvCbvHeap.Get(),
         // You'll need to designate a descriptor from your descriptor heap for Dear ImGui to use internally for its font texture's SRV
         srv->GetResourceHandle().cpuDescriptorHandle,
         srv->GetResourceHandle().gpuDescriptorHandle
@@ -1237,7 +1254,7 @@ void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objec
     // Set necessary state.
     m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
     // Set command list shader resource view and constant buffer view
-    ID3D12DescriptorHeap* ppHeaps[] = { m_resourceHeap->GetHeap(), m_samplerHeap.Get()};
+    ID3D12DescriptorHeap* ppHeaps[] = { m_srvCbvHeap.Get(), m_samplerHeap.Get()};
     m_commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
     // Describe how samplers are laid out to GPU
