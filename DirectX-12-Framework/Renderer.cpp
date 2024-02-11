@@ -125,7 +125,8 @@ void Renderer::Resize(UINT width, UINT height)
     // Update the size of the scissor rect
     m_scissorRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
     // Update the viewport also    
-    m_viewport = { 0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height) };
+    m_viewport.Width = float(width);
+    m_viewport.Height = float(height);
 
 }
 
@@ -879,7 +880,6 @@ void Renderer::UpdateGUI(std::set<std::shared_ptr<SceneObject>>& objects, std::s
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
-    ImGui::ShowDemoWindow();
 
     // Scene Graph
     ShowSceneGraph(objects, selectedObject);
@@ -893,8 +893,6 @@ void Renderer::UpdateGUI(std::set<std::shared_ptr<SceneObject>>& objects, std::s
 
 void Renderer::ShowSceneGraph(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject)
 {
-    // Create the Scene Graph window
-    ImGui::SetNextWindowSize(ImVec2(430, 450), ImGuiCond_FirstUseEver);
     bool open = true;
     if (!ImGui::Begin("Scene Graph", &open))
     {
@@ -937,9 +935,6 @@ void Renderer::ShowSceneGraph(std::set<std::shared_ptr<SceneObject>>& objects, s
 
 void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 {
-
-    // Create the Scene Graph window
-    ImGui::SetNextWindowSize(ImVec2(430, 450), ImGuiCond_FirstUseEver);
     bool open = true;
     if (!ImGui::Begin("Properties Editor", &open))
     {
@@ -952,85 +947,214 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
         // Create the list of items in the world
         /*if (ImGui::TreeNode(selectedObject->GetName().c_str()))
         {*/
-            // Name:
+        // Name:
+        {
+            ImGui::Text("Name:");
+            std::string name = selectedObject->GetName();
+            if (ImGui::InputText("##Name", &name) && !name.empty())
             {
-                ImGui::Text("Name:");
-                std::string name = selectedObject->GetName();
-                if (ImGui::InputText("##Name", &name) && !name.empty())
-                {
-                    selectedObject->SetName(name);
-                }
-
+                selectedObject->SetName(name);
             }
 
-            // Position
-            {
-                ImGui::Text("Position:");
+        }
 
-                float position[3] = { selectedObject->GetPosition().x, selectedObject->GetPosition().y, selectedObject->GetPosition().z };
-                if (ImGui::DragFloat3("##Position", position, 0.1f))
-                {
-                    selectedObject->SetPosition(position[0], position[1], position[2]);
-                }
+        // Position
+        {
+            ImGui::Text("Position:");
+
+            float position[3] = { selectedObject->GetPosition().x, selectedObject->GetPosition().y, selectedObject->GetPosition().z };
+            if (ImGui::DragFloat3("##Position", position, 0.1f))
+            {
+                selectedObject->SetPosition(position[0], position[1], position[2]);
             }
-            // Rotation
-            {
-                ImGui::Text("Rotation:");
+        }
+        // Rotation
+        {
+            ImGui::Text("Rotation:");
 
-                float rotation[3] = { selectedObject->GetRotation().x, selectedObject->GetRotation().y, selectedObject->GetRotation().z };
-                if (ImGui::DragFloat3("##Rotation", rotation, 0.1f))
-                {
-                    selectedObject->SetRotation(rotation[0], rotation[1], rotation[2]);
-                }
+            float rotation[3] = { selectedObject->GetRotation().x, selectedObject->GetRotation().y, selectedObject->GetRotation().z };
+            if (ImGui::DragFloat3("##Rotation", rotation, 0.1f))
+            {
+                selectedObject->SetRotation(rotation[0], rotation[1], rotation[2]);
             }
-            // Scale
-            {
-                ImGui::Text("Scale:");
+        }
+        // Scale
+        {
+            ImGui::Text("Scale:");
 
-                float scale[3] = { selectedObject->GetScale().x, selectedObject->GetScale().y, selectedObject->GetScale().z };
-                if (ImGui::DragFloat3("##Scale", scale, 0.1f))
-                {
-                    selectedObject->SetScale(scale[0], scale[1], scale[2]);
-                }
+            float scale[3] = { selectedObject->GetScale().x, selectedObject->GetScale().y, selectedObject->GetScale().z };
+            if (ImGui::DragFloat3("##Scale", scale, 0.1f))
+            {
+                selectedObject->SetScale(scale[0], scale[1], scale[2]);
             }
-            // Texture
-            {
-                ImGui::Text("Texture:");
+        }
+        // Texture
+        {
+            ImGui::Text("Texture:");
 
-                if (ImGui::BeginCombo("##Texture", selectedObject->GetTexture()->GetName().c_str()))
+            std::string name = "None";
+            if (selectedObject->GetTexture())
+            {
+                name = selectedObject->GetTexture()->GetName().c_str();
+            }
+            if (ImGui::BeginCombo("##Texture", name.c_str()))
+            {
+                for (auto texture : m_resourceHeap->m_textures)
                 {
-                    for (auto texture : m_resourceHeap->m_textures)
+                    const bool is_selected = (selectedObject->GetTexture() == texture.second);
+                    if (ImGui::Selectable(texture.first.c_str(), is_selected))
+                        selectedObject->SetTexture(texture.second);
+
+                    if (is_selected)
+                        ImGui::SetItemDefaultFocus();
+                }
+                // Add additional "None" option
+                {
+                    const bool is_selected = (selectedObject->GetTexture() == nullptr);
+                    if (ImGui::Selectable("None", is_selected))
+                        selectedObject->SetTexture(nullptr);
+
+                    if (is_selected)
+                        ImGui::SetItemDefaultFocus();
+                }
+                // Add additional "Load" option
+                {
+                    if (ImGui::Button("Load"))
                     {
-                        const bool is_selected = (selectedObject->GetTexture() == texture.second);
-                        if (ImGui::Selectable(texture.first.c_str(), is_selected))
-                            selectedObject->SetTexture(texture.second);
-
-                        // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
-                        if (is_selected)
-                            ImGui::SetItemDefaultFocus();
+                        ImGui::OpenPopup("##LoadTexture");
                     }
-                    ImGui::EndCombo();
-                }
-            }
-            // Model
-            {
-                ImGui::Text("Model:");
-
-                if (ImGui::BeginCombo("##Model", selectedObject->GetModel()->GetName().c_str()))
-                {
-                    for (auto model : m_resourceHeap->m_models)
+                    if (ImGui::BeginPopup("##LoadTexture"))
                     {
-                        const bool is_selected = (selectedObject->GetModel() == model.second);
-                        if (ImGui::Selectable(model.first.c_str(), is_selected))
-                            selectedObject->SetModel(model.second);
+                        static std::string path;
+                        static std::string name;
+                        // use to tell the user they've entered an invalid path
+                        const char validPathHint[] = "Path...";
+                        const char invalidPathHint[] = "Invalid Path!";
+                        static std::string pathHint = validPathHint;
 
-                        // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
-                        if (is_selected)
-                            ImGui::SetItemDefaultFocus();
+                        // Ensure the user can only hit load if they've changed the path and have a valid name
+                        static bool pathChanged = false;
+                        bool nameValid = false;
+
+                        pathChanged |= ImGui::InputTextWithHint("##TexturePath", pathHint.c_str(), &path);
+                        pathChanged &= !path.empty();
+                        ImGui::InputTextWithHint("##TextureName", "Name...", &name);
+                        nameValid = !name.empty();
+                        nameValid &= !m_resourceHeap->m_textures.contains(name);
+
+                        ImGui::BeginDisabled(!(pathChanged && nameValid));
+                        if (ImGui::Button("Load"))
+                        {
+                            // Convert the path to a literal to use in the model loader
+                            std::wstring wpath(path.begin(), path.end());
+                            auto texture = CreateTexture(wpath.c_str(), name);
+                            // If the model was loaded correctly, set it
+                            if (texture)
+                            {
+                                selectedObject->SetTexture(texture);
+                                pathHint = validPathHint;
+
+                            }
+                            else
+                            {
+                                path = "";
+                                pathHint = invalidPathHint;
+                                pathChanged = false;
+                            }
+                        }
+                        ImGui::EndDisabled();
+
+                        ImGui::EndPopup();
                     }
-                    ImGui::EndCombo();
                 }
+                ImGui::EndCombo();
             }
+        }
+        // Model
+        {
+            ImGui::Text("Model:");
+
+            std::string name = "None";
+            if (selectedObject->GetModel())
+            {
+                name = selectedObject->GetModel()->GetName().c_str();
+            }
+            if (ImGui::BeginCombo("##Model", name.c_str()))
+            {
+                for (auto model : m_resourceHeap->m_models)
+                {
+                    const bool is_selected = (selectedObject->GetModel() == model.second);
+                    if (ImGui::Selectable(model.first.c_str(), is_selected))
+                        selectedObject->SetModel(model.second);
+
+                    // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+                    if (is_selected)
+                        ImGui::SetItemDefaultFocus();
+                }
+                // Add additional "None" option
+                {
+                    const bool is_selected = (selectedObject->GetModel() == nullptr);
+                    if (ImGui::Selectable("None", is_selected))
+                        selectedObject->SetModel(nullptr);
+
+                    if (is_selected)
+                        ImGui::SetItemDefaultFocus();
+                }
+                // Add additional "Load" option
+                {
+                    if (ImGui::Button("Load"))
+                    {
+                        ImGui::OpenPopup("##LoadModel");
+                    }
+                    if (ImGui::BeginPopup("##LoadModel"))
+                    {
+                        static std::string path;
+                        static std::string name;
+                        // use to tell the user they've entered an invalid path
+                        const char validPathHint[] = "Path...";
+                        const char invalidPathHint[] = "Invalid Path!";
+                        static std::string pathHint = validPathHint;
+
+                        // Ensure the user can only hit load if they've changed the path and have a valid name
+                        static bool pathChanged = false;
+                        bool nameValid = false;
+
+                        pathChanged |= ImGui::InputTextWithHint("##ModelPath", pathHint.c_str(), &path);
+                        pathChanged &= !path.empty();
+
+                        ImGui::InputTextWithHint("##ModelName", "Name...", &name);
+                        // Ensure the name isn't naught and that it doesn't already exist
+                        nameValid = !name.empty();
+                        nameValid &= !m_resourceHeap->m_models.contains(name);
+
+                        ImGui::BeginDisabled(!(pathChanged && nameValid));
+                        if (ImGui::Button("Load"))
+                        {
+                            // Convert the path to a literal to use in the model loader
+                            std::wstring wpath(path.begin(), path.end());
+                            auto model = CreateModel(wpath.c_str(), name);
+                            // If the model was loaded correctly, set it
+                            if (model)
+                            {
+                                selectedObject->SetModel(model);
+                                pathHint = validPathHint;
+
+                            }
+                            else
+                            {
+                                path = "";
+                                pathHint = invalidPathHint;
+                                pathChanged = false;
+                            }
+                        }
+                        ImGui::EndDisabled();
+
+                        ImGui::EndPopup();
+                    }
+                }
+                ImGui::EndCombo();
+            }
+        }
 
         //    ImGui::TreePop();
         //}

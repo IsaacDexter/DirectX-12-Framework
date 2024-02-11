@@ -14,15 +14,8 @@ Engine::Engine(HINSTANCE hInstance) :
 void Engine::Initialize()
 {
     m_camera = std::make_unique<Camera>(XMFLOAT3(0.0f, 0.0f, 3.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), m_window->GetAspectRatio());
-    auto tiles = m_renderer->CreateTexture(L"Assets/Tiles.dds", "tiles");
-    auto grass = m_renderer->CreateTexture(L"Assets/Grass.dds", "grass");
-    auto cube = m_renderer->CreateModel(L"Assets/Cube.obj", "cube");
-    for (UINT i = 0; i < m_numObjects; i++)
-    {
-        auto object = std::make_shared<SceneObject>(cube, (i % 2 == 0) ? tiles : grass, m_renderer->CreateConstantBuffer(), "Object " + std::to_string(i));
-        object->SetPosition(i * 2, 0.0f, 0.0f);
-        m_sceneObjects.emplace(object);
-    }
+    m_sceneObjects.emplace(std::make_shared<SceneObject>(m_renderer->CreateModel(L"Cube", "Cube"), m_renderer->CreateTexture(L"Assets/Tiles.dds", "Tiles"), m_renderer->CreateConstantBuffer(), "Cube"));
+    m_sceneObjects.emplace(std::make_shared<SceneObject>(m_renderer->CreateModel(L"Pyramid", "Pyramid"), m_renderer->CreateTexture(L"Assets/Sand.dds", "Sand"), m_renderer->CreateConstantBuffer(), "Pyramid"));
 }
 
 void Engine::Update()
@@ -136,6 +129,7 @@ void Engine::OnMouseMove(int x, int y, WPARAM wParam)
     {
         m_selectedObject = Pick(m_camera->GetPosition(), CreateRay(x, y));
     }
+    break;
     default:
     {
         break;

@@ -63,6 +63,7 @@ protected:
     std::queue<ResourceHandle> m_freeHandles;
 
     bool m_load = false;
+    bool m_resetRequired = false;
 
     const ResourceHandle GetFreeHandle();
 };

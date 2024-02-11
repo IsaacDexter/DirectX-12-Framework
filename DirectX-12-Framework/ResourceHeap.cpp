@@ -38,24 +38,32 @@ void ResourceHeap::Initialize(ID3D12Device* device, ID3D12PipelineState* pipelin
         pipelineState,  // Pipeline state
         IID_PPV_ARGS(&m_commandList)
     ), "Failed to create command list.\n");
-
-    m_load = true;
-
 }
 const std::shared_ptr<Texture> ResourceHeap::CreateTexture(ID3D12Device* device, ID3D12PipelineState* pipelineState, const wchar_t* path, std::string name)
 {
 
-    if (!m_load)
+    if (m_resetRequired)
     {
         m_commandAllocator->Reset();
         m_commandList->Reset(m_commandAllocator.Get(), pipelineState);
+        m_resetRequired = false;
     }
 
-    auto resource = ReserveSRV(name);
-    resource->Initialize(device, m_commandList.Get(), path);
+    ResourceHandle resourceHandle = GetFreeHandle();
+    UINT rootParameterIndex = RootParameterIndices::SRV;
+
+    auto texture = std::make_shared<Texture>(resourceHandle, rootParameterIndex, name);
+    // Ensure the load went correctly - if it didnt, return nullptr!
+    if (!texture->Initialize(device, m_commandList.Get(), path))
+    {
+        return nullptr;
+    }
+
+    m_textures.emplace(name, texture);
+
 
     m_load = true;
-    return resource;
+    return texture;
 }
 
 const std::shared_ptr<Texture> ResourceHeap::ReserveSRV(std::string name)
@@ -78,17 +86,21 @@ const std::shared_ptr<ConstantBuffer> ResourceHeap::CreateCBV()
 }
 const std::shared_ptr<Primitive> ResourceHeap::CreateModel(ID3D12Device* device, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature, const wchar_t* path, std::string name)
 {
-    if (!m_load)
+    if (m_resetRequired)
     {
         m_commandAllocator->Reset();
         m_commandList->Reset(m_commandAllocator.Get(), pipelineState);
+        m_resetRequired = false;
     }
 
     // Create the model
     auto model = std::make_shared<Primitive>(name);
-    model->Initialize(device, m_commandList.Get(), pipelineState, rootSignature, path);
+    // If the model is loaded incorrectly, return nothing.
+    if (!model->Initialize(device, m_commandList.Get(), pipelineState, rootSignature, path))
+    {
+        return nullptr;
+    }
     m_models.emplace(name, model);
-
     m_load = true;
     return model;
 
@@ -105,6 +117,7 @@ bool ResourceHeap::Load(ID3D12CommandQueue* commandQueue)
 
         ID3D12CommandList* loadCommandLists[] = { m_commandList.Get() };
         commandQueue->ExecuteCommandLists(_countof(loadCommandLists), loadCommandLists);
+        m_resetRequired = true;
     }
     return load;
 }

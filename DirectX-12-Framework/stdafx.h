@@ -24,7 +24,7 @@
 // debug
 // tell hlsl compiler to include debug information into shader blob
 #if defined (_DEBUG)
-#define D3DCOMPILE_DEBUG 1
+//#define D3DCOMPILE_DEBUG 1
 #endif // _DEBUG
 
 #include "Helpers.h"

@@ -7,12 +7,16 @@ m_name(name)
 {
 }
 
-void Primitive::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature, const wchar_t* path)
+bool Primitive::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature, const wchar_t* path)
 {
-    LoadModel(path);
-    CreateVertexBuffer(device, commandList);
-    CreateIndexBuffer(device, commandList);
-    CreateBundle(device, pipelineState, rootSignature);
+    if (LoadModel(path))
+    {
+        CreateVertexBuffer(device, commandList);
+        CreateIndexBuffer(device, commandList);
+        CreateBundle(device, pipelineState, rootSignature);
+        return true;
+    }
+    return false;
 }
 
 void Primitive::Draw(ID3D12GraphicsCommandList* commandList)
@@ -20,9 +24,14 @@ void Primitive::Draw(ID3D12GraphicsCommandList* commandList)
     commandList->ExecuteBundle(m_bundle.Get());
 }
 
-void Primitive::LoadModel(const wchar_t* path)
+bool Primitive::LoadModel(const wchar_t* path)
 {
-    if (path == L"Assets/Cube.obj")
+    static std::string cubePath = "Cube";
+    static std::wstring wcubePath = std::wstring(cubePath.begin(), cubePath.end());
+    static std::string pyramidPath = "Pyramid";
+    static std::wstring wpyramidPath = std::wstring(pyramidPath.begin(), pyramidPath.end());
+
+    if (path[0] == wcubePath.c_str()[0])
     {
         // Define the geometry for a cube.
         m_vertices =
@@ -91,7 +100,7 @@ void Primitive::LoadModel(const wchar_t* path)
             20, 23, 21, // second triangle
         };
     }
-    else
+    else if (path[0] == wpyramidPath.c_str()[0])
     {
         m_vertices = 
         {
@@ -112,11 +121,18 @@ void Primitive::LoadModel(const wchar_t* path)
             3,2,1
         };
     }
+    // Could not 'Load' shape (all behaviour to do with mesh loading is dummy
+    else
+    {
+        return false;
+    }
 
 
-    m_verticesSize = m_vertices.size() * sizeof(Vertex);
+    m_verticesSize = m_vertices.size() * UINT(sizeof(Vertex));
     m_indicesCount = m_indices.size();
-    m_indicesSize = m_indicesCount * sizeof(Index);
+    m_indicesSize = m_indicesCount * UINT(sizeof(Index));
+
+    return true;
 }
 
 void Primitive::CreateVertexBuffer(ID3D12Device* device, ID3D12GraphicsCommandList* commandList)

@@ -20,7 +20,7 @@ public:
 	* @param descriptor UINT identifier to the texture
 	* @ returns the newly created texture resource
 	*/
-	void Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, const wchar_t* path);
+	bool Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, const wchar_t* path);
 
 protected:
 	// Note: ComPtr's are CPU objects but this resource needs to stay in scope until
