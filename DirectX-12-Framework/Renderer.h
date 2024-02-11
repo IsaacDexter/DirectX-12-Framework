@@ -14,7 +14,7 @@
 #include "Primitive.h"
 #include "Texture.h"
 #include "ConstantBuffer.h"
-#include "ResourceHeap.h"
+#include "CbvSrvUavHeap.h"
 #include "SceneObject.h"
 
 class Renderer
@@ -58,8 +58,7 @@ private:
 
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
 	UINT m_rtvDescriptorSize;
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvCbvHeap;
-	UINT m_srvCbvDescriptorSize;
+
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_samplerHeap;
 
@@ -71,18 +70,7 @@ private:
 #pragma region Resources
 
 
-	std::unique_ptr<ResourceHeap> m_resourceHeap;
-
-	enum Descriptors
-	{
-		Object1,
-		Object2,
-		Tiles,
-		Grass,
-		Sand,
-		GUI,
-		Count,
-	};
+	std::unique_ptr<CbvSrvUavHeap> m_cbvSrvUavHeap;
 	
 
 #pragma endregion
