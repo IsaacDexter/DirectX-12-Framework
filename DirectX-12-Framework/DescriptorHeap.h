@@ -24,6 +24,8 @@ public:
         CBV,
         Sampler,
     };
+
+    const ResourceHandle GetFreeHandle();
 protected:
     virtual void CreateHeap(ID3D12Device* device, const D3D12_DESCRIPTOR_HEAP_DESC desc);
 
@@ -38,6 +40,5 @@ protected:
     */
     std::queue<ResourceHandle> m_freeHandles;
 
-    const ResourceHandle GetFreeHandle();
 };
 

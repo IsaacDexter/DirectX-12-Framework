@@ -100,7 +100,7 @@ void Renderer::Resize(UINT width, UINT height)
     for (int i = 0; i < m_frameCount; ++i)
     {
         // relesase references to renderTargets before resizing
-        m_framebuffers[i]->Reset();
+        m_framebuffers[i].first.Reset();
     }
     //m_renderTextureRtv->Reset();
 
@@ -216,7 +216,7 @@ void Renderer::InitializePipeline(HWND hWnd, const UINT width, const UINT height
         rtvHeapDesc.NumDescriptors = 8;
         rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;  //RTV type
         rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;    // This heap needs no binding to pipeline
-        m_rtvHeap = std::make_unique<RtvHeap>(m_device.Get(), rtvHeapDesc);
+        m_rtvHeap = std::make_unique<DescriptorHeap>(m_device.Get(), rtvHeapDesc);
     }
 
     // Create the swapChain
@@ -487,9 +487,11 @@ void Renderer::CreateFramebuffers()
     // For each framebuffer
     for (UINT n = 0; n < m_framebuffers.size(); n++)
     {
-        ID3D12Resource* resource;
-        ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&resource)));
-        m_framebuffers[n] = m_rtvHeap->CreateRtv(m_device.Get(), resource);
+        ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&m_framebuffers[n].first)));
+        // Get a free handle pair on the RTV heap, then create an RTV at it and store the RTV and its handle.
+        auto descriptorHandle = m_rtvHeap->GetFreeHandle();
+        m_device->CreateRenderTargetView(m_framebuffers[n].first.Get(), nullptr, descriptorHandle.cpuDescriptorHandle);
+        m_framebuffers[n].second = descriptorHandle;
     }
 }
 
@@ -498,11 +500,8 @@ void Renderer::UpdateFramebuffers()
     // For each framebuffer
     for (UINT n = 0; n < m_framebuffers.size(); n++)
     {
-        
-        ID3D12Resource* resource;
-        ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&resource)));
-        m_framebuffers[n]->SetResource(resource);
-        m_device->CreateRenderTargetView(resource, nullptr, m_framebuffers[n]->GetHandle().cpuDescriptorHandle);
+        ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&m_framebuffers[n].first)));
+        m_device->CreateRenderTargetView(m_framebuffers[n].first.Get(), nullptr, m_framebuffers[n].second.cpuDescriptorHandle);
     }
 }
 
@@ -622,7 +621,9 @@ void Renderer::InitializeAssets(const UINT width, const UINT height)
         rtvDesc.Texture2D.MipSlice = 0;
 
         // Create the render target view.
-        m_renderTextureRtv = m_rtvHeap->CreateRtv(m_device.Get(), m_renderTextureSrv->GetResource());
+        auto descriptorHandle = m_rtvHeap->GetFreeHandle();
+        m_device->CreateRenderTargetView(m_renderTextureSrv->GetResource(), nullptr, descriptorHandle.cpuDescriptorHandle);
+        m_renderTextureRtvDescriptorHandle = descriptorHandle;
         m_device->CreateShaderResourceView(m_renderTextureSrv->GetResource(), nullptr, m_renderTextureSrv->GetResourceHandle().cpuDescriptorHandle);
         /*ID3D12Resource* resource;
         ThrowIfFailed(m_swapChain->GetBuffer(0, IID_PPV_ARGS(&resource)));
@@ -639,7 +640,7 @@ void Renderer::InitializeAssets(const UINT width, const UINT height)
         IID_PPV_ARGS(&m_commandList)
     ), "Failed to create command list.\n");
 
-    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_renderTextureRtv->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_renderTextureSrv->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     m_commandList->ResourceBarrier(1, &barrier);
     
     CreateSampler();
@@ -1318,13 +1319,13 @@ void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objec
 
     // Indicate that render texture will be used as the render target
     {
-        auto renderTarget = m_renderTextureRtv;
+        auto renderTarget = m_renderTextureSrv->GetResource();
 
-        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
+        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
         m_commandList->ResourceBarrier(1, &barrier);
 
         // Set CPU handles for Render Target Views (RTVs) and Depth Stencil Views (DSVs) heaps
-        auto rtvHandle = renderTarget->GetHandle().cpuDescriptorHandle;
+        auto rtvHandle = m_renderTextureRtvDescriptorHandle.cpuDescriptorHandle;
         CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
         m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
 
@@ -1353,7 +1354,7 @@ void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objec
         //RenderGUI(m_commandList.Get());
 
         // Indicate that the back buffer will now be used to present.
-        barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+        barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
         m_commandList->ResourceBarrier(1, &barrier);
     }
 
@@ -1361,11 +1362,11 @@ void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objec
     {
         auto renderTarget = m_framebuffers[m_frameIndex];
 
-        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget->GetResource(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget.first.Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
         m_commandList->ResourceBarrier(1, &barrier);
 
         // Set CPU handles for Render Target Views (RTVs) and Depth Stencil Views (DSVs) heaps
-        auto rtvHandle = renderTarget->GetHandle().cpuDescriptorHandle;
+        auto rtvHandle = renderTarget.second.cpuDescriptorHandle;
         CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
         m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
 
@@ -1394,7 +1395,7 @@ void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objec
 
 
         // Indicate that the back buffer will now be used to present.
-        barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+        barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget.first.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
         m_commandList->ResourceBarrier(1, &barrier);
     }
     

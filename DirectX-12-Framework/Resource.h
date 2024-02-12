@@ -11,6 +11,10 @@ struct ResourceHandle
 	{
 
 	}
+	ResourceHandle()
+	{
+
+	}
 };
 
 class Resource

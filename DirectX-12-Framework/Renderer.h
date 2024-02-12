@@ -50,7 +50,8 @@ private:
 	Microsoft::WRL::ComPtr<IDXGISwapChain3> m_swapChain;
 	Microsoft::WRL::ComPtr<ID3D12Device4> m_device;
 	// I think this should be called m_frameBuffers, but wikipedia says its just one word. Go figure.
-	std::array<std::shared_ptr<Rtv>, Renderer::m_frameCount> m_framebuffers;
+	std::array<std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, ResourceHandle>, Renderer::m_frameCount> m_framebuffers;
+
 	std::array<Microsoft::WRL::ComPtr<ID3D12CommandAllocator>, Renderer::m_frameCount > m_commandAllocators;
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_commandList;
 	Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_commandQueue;
@@ -70,9 +71,9 @@ private:
 
 
 	std::unique_ptr<CbvSrvUavHeap> m_cbvSrvUavHeap;
-	std::unique_ptr<RtvHeap> m_rtvHeap;
+	std::unique_ptr<DescriptorHeap> m_rtvHeap;
 	std::shared_ptr<Texture> m_renderTextureSrv;
-	std::shared_ptr<Rtv> m_renderTextureRtv;
+	ResourceHandle m_renderTextureRtvDescriptorHandle;
 
 
 #pragma endregion
