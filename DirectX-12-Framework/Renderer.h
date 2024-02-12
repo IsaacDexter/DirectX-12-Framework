@@ -17,6 +17,7 @@
 #include "CbvSrvUavHeap.h"
 #include "RtvHeap.h"
 #include "SceneObject.h"
+#include "Portal.h"
 
 class Renderer
 {
@@ -74,7 +75,7 @@ private:
 	std::unique_ptr<DescriptorHeap> m_rtvHeap;
 	std::shared_ptr<Texture> m_renderTextureSrv;
 	ResourceHandle m_renderTextureRtvDescriptorHandle;
-
+	std::unique_ptr<Portal> m_portal;
 
 #pragma endregion
 
