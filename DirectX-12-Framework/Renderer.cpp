@@ -102,6 +102,7 @@ void Renderer::Resize(UINT width, UINT height)
         // relesase references to renderTargets before resizing
         m_framebuffers[i]->Reset();
     }
+    //m_renderTextureRtv->Reset();
 
 
 
@@ -1343,7 +1344,7 @@ void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objec
         // Draw object
         for (auto object : objects)
         {
-            if (object->GetName() != "Pyramid")
+            if (object->GetTexture()->GetName() == "Render Texture")
             {
                 continue;
             }
