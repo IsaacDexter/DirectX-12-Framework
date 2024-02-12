@@ -587,7 +587,7 @@ void Renderer::InitializeAssets(const UINT width, const UINT height)
             width,  // Depth Stencil to encompass the whole screen (ensure to resize it alongside the screen.)
             height,
             1,  // Array size of 1
-            0,  // no MIP levels
+            1,  // MUST NEVER BE 0 OR IT BREAKS
             1, 0,   // Sample count and quality (no Anti-Aliasing)
             D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET // Allow a DSV to be created for the resource and allow it to handle write/read transitions
         );
@@ -1341,10 +1341,14 @@ void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objec
         // Update Model View Projection (MVP) Matrix according to camera position
 
         // Draw object
-        /*for (auto object : objects)
+        for (auto object : objects)
         {
+            if (object->GetName() != "Pyramid")
+            {
+                continue;
+            }
             object->Draw(m_commandList.Get());
-        }*/
+        }
         //RenderGUI(m_commandList.Get());
 
         // Indicate that the back buffer will now be used to present.
