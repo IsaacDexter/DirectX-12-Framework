@@ -592,6 +592,10 @@ void Renderer::InitializeAssets(const UINT width, const UINT height)
             D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET // Allow a DSV to be created for the resource and allow it to handle write/read transitions
         );
 
+        D3D12_CLEAR_VALUE clearValue = { DXGI_FORMAT_R8G8B8A8_UNORM, {} };
+        const float clearColor[] = { 0.5f, 0.1f, 0.55f, 1.0f };
+        memcpy(clearValue.Color, clearColor, sizeof(clearValue.Color));
+
         // Create the DSV in an implicit heap that encompasses it
         {
             // Upload with a default heap
@@ -599,14 +603,14 @@ void Renderer::InitializeAssets(const UINT width, const UINT height)
             auto uploadHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
             ThrowIfFailed(m_device->CreateCommittedResource(
                 &uploadHeapProps,
-                D3D12_HEAP_FLAG_NONE,   // Perhaps D3D12_HEAP_FLAG_DENY_NON_RT_DS_TEXTURES? https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_heap_flags
+                D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES,   // Perhaps D3D12_HEAP_FLAG_DENY_NON_RT_DS_TEXTURES? https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_heap_flags
                 &textureDesc,
-                D3D12_RESOURCE_STATE_COMMON, //We want to be able to render to this texture
-                nullptr,    // Need no depth optimized clear value
+                D3D12_RESOURCE_STATE_RENDER_TARGET, //We want to be able to render to this texture
+                &clearValue,    // Need no depth optimized clear value
                 IID_PPV_ARGS(&resource)    //Store in the renderTexture
             ));
             m_renderTextureSrv->SetResource(resource);
-            resource->SetName(L"Render Target SRV");
+            resource->SetName(L"Render Texture SRV");
             //m_renderTextureSrv->Initialize(m_device.Get(), m_commandList.Get(), L"Assets/Grass.dds");
         }
 
@@ -618,6 +622,7 @@ void Renderer::InitializeAssets(const UINT width, const UINT height)
 
         // Create the render target view.
         m_renderTextureRtv = m_rtvHeap->CreateRtv(m_device.Get(), m_renderTextureSrv->GetResource());
+        m_device->CreateShaderResourceView(m_renderTextureSrv->GetResource(), nullptr, m_renderTextureSrv->GetResourceHandle().cpuDescriptorHandle);
         /*ID3D12Resource* resource;
         ThrowIfFailed(m_swapChain->GetBuffer(0, IID_PPV_ARGS(&resource)));
         m_renderTextureRtv = m_rtvHeap->CreateRtv(m_device.Get(), resource);*/
@@ -633,7 +638,8 @@ void Renderer::InitializeAssets(const UINT width, const UINT height)
         IID_PPV_ARGS(&m_commandList)
     ), "Failed to create command list.\n");
 
-
+    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_renderTextureRtv->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    m_commandList->ResourceBarrier(1, &barrier);
     
     CreateSampler();
 
@@ -676,8 +682,8 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRootSignature()
         D3D12_DESCRIPTOR_RANGE_TYPE_SRV,    // type of resources within the range
         1,  // number of descriptors in the range
         0,  // base shader register in the range
-        0,  // register space, typically 0
-        D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC // Descriptors and data are static and will not change (as they're loaded textures)
+        0  // register space, typically 0
+        //D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC // Descriptors and data are static and will not change (as they're loaded textures)
     );
     // Sampler range
     ranges[DescriptorHeap::RootParameterIndices::Sampler].Init(
@@ -1313,7 +1319,7 @@ void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objec
     {
         auto renderTarget = m_renderTextureRtv;
 
-        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget->GetResource(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget->GetResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
         m_commandList->ResourceBarrier(1, &barrier);
 
         // Set CPU handles for Render Target Views (RTVs) and Depth Stencil Views (DSVs) heaps
@@ -1335,14 +1341,14 @@ void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objec
         // Update Model View Projection (MVP) Matrix according to camera position
 
         // Draw object
-        for (auto object : objects)
+        /*for (auto object : objects)
         {
             object->Draw(m_commandList.Get());
-        }
+        }*/
         //RenderGUI(m_commandList.Get());
 
         // Indicate that the back buffer will now be used to present.
-        barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+        barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget->GetResource(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
         m_commandList->ResourceBarrier(1, &barrier);
     }
 
