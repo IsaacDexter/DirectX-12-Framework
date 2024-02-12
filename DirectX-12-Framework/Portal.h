@@ -6,11 +6,14 @@
 class Camera;
 class SceneObject;
 class Portal;
+class Texture;
 
 class Portal
 {
 public:
-	Portal(ID3D12Device* device, const ResourceHandle rtvHandle, const ResourceHandle srvHandle);
+	Portal(ID3D12Device* device, const ResourceHandle rtvHandle, const std::shared_ptr<Texture> srv);
+	//Portal(ID3D12Device* device, const ResourceHandle rtvHandle, const ResourceHandle srvHandle);
+	
 	void SetOtherPortal(std::shared_ptr<Portal> otherPortal)
 	{
 		m_otherPortal = otherPortal;
@@ -36,7 +39,8 @@ private:
 	* Resources and handles for the RenderTexture RTV/SRV
 	*/
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_renderTexture;
-	const ResourceHandle m_srvHandle;
+	//const ResourceHandle m_srvHandle;
+	std::shared_ptr<Texture> m_srv;
 	const ResourceHandle m_rtvHandle;
 };
 

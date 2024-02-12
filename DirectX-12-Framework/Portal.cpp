@@ -5,9 +5,60 @@
 
 using namespace DirectX;
 
-Portal::Portal(ID3D12Device* device, const ResourceHandle rtvHandle, const ResourceHandle srvHandle) :
+//Portal::Portal(ID3D12Device* device, const ResourceHandle rtvHandle, const ResourceHandle srvHandle) :
+//m_rtvHandle(rtvHandle),
+//m_srvHandle(srvHandle)
+//{
+//	m_camera = std::make_unique<Camera>(DirectX::XMFLOAT3(0.0f, 0.0f, 3.0f), DirectX::XMFLOAT3(0.0f, 0.0f, -1.0f), DirectX::XMFLOAT3(0.0f, 1.0f, 0.0f));
+//	// Create the render texture
+//	{
+//		// Describe the render texture
+//		D3D12_RESOURCE_DESC textureDesc = CD3DX12_RESOURCE_DESC::Tex2D(
+//			DXGI_FORMAT_R8G8B8A8_UNORM,  // Use established DS format
+//			1280,  // Depth Stencil to encompass the whole screen (ensure to resize it alongside the screen.)
+//			720,
+//			1,  // Array size of 1
+//			1,  // MUST NEVER BE 0 OR IT BREAKS
+//			1, 0,   // Sample count and quality (no Anti-Aliasing)
+//			D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET // Allow a DSV to be created for the resource and allow it to handle write/read transitions
+//		);
+//
+//		D3D12_CLEAR_VALUE clearValue = { DXGI_FORMAT_R8G8B8A8_UNORM, {} };
+//		const float clearColor[] = { 0.5f, 0.1f, 0.55f, 1.0f };
+//		memcpy(clearValue.Color, clearColor, sizeof(clearValue.Color));
+//
+//		// Create the DSV in an implicit heap that encompasses it
+//		{
+//			// Upload with a default heap
+//			auto uploadHeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+//			ThrowIfFailed(device->CreateCommittedResource(
+//				&uploadHeapProps,
+//				D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES,   // Perhaps D3D12_HEAP_FLAG_DENY_NON_RT_DS_TEXTURES? https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_heap_flags
+//				&textureDesc,
+//				//D3D12_RESOURCE_STATE_RENDER_TARGET, // We we will want to change to this state later
+//				D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, // We want to be able to render to this texture
+//				&clearValue,    // Need no depth optimized clear value
+//				IID_PPV_ARGS(&m_renderTexture)    //Store in the renderTexture
+//			));
+//			m_renderTexture->SetName(L"Render Texture SRV");
+//		}
+//
+//		D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+//		// Setup the description of the render target view.
+//		rtvDesc.Format = textureDesc.Format;
+//		rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+//		rtvDesc.Texture2D.MipSlice = 0;
+//
+//		// Create the render target view.
+//		device->CreateRenderTargetView(m_renderTexture.Get(), nullptr, m_rtvHandle.cpuDescriptorHandle);
+//		// Create the shader resource view
+//		device->CreateShaderResourceView(m_renderTexture.Get(), nullptr, m_srvHandle.cpuDescriptorHandle);
+//	}
+//}
+
+Portal::Portal(ID3D12Device* device, const ResourceHandle rtvHandle, const std::shared_ptr<Texture> srv) :
 m_rtvHandle(rtvHandle),
-m_srvHandle(srvHandle)
+m_srv(srv)
 {
 	m_camera = std::make_unique<Camera>(DirectX::XMFLOAT3(0.0f, 0.0f, 3.0f), DirectX::XMFLOAT3(0.0f, 0.0f, -1.0f), DirectX::XMFLOAT3(0.0f, 1.0f, 0.0f));
 	// Create the render texture
@@ -52,7 +103,7 @@ m_srvHandle(srvHandle)
 		// Create the render target view.
 		device->CreateRenderTargetView(m_renderTexture.Get(), nullptr, m_rtvHandle.cpuDescriptorHandle);
 		// Create the shader resource view
-		device->CreateShaderResourceView(m_renderTexture.Get(), nullptr, m_srvHandle.cpuDescriptorHandle);
+		device->CreateShaderResourceView(m_renderTexture.Get(), nullptr, m_srv->GetResourceHandle().cpuDescriptorHandle);
 	}
 }
 
@@ -91,7 +142,7 @@ void Portal::Draw(ID3D12GraphicsCommandList* commandList, D3D12_CPU_DESCRIPTOR_H
 	// Draw object
 	for (auto object : objects)
 	{
-		if (object->GetTexture()->GetName() == "Render Texture")
+		if (object->GetTexture()->GetName() == "Portal")
 		{
 			continue;
 		}

@@ -581,8 +581,10 @@ void Renderer::InitializeAssets(const UINT width, const UINT height)
 	}
 	
 	auto rtvHandle = m_rtvHeap->GetFreeHandle();
-	auto srvHandle = m_cbvSrvUavHeap->GetFreeHandle();
-	m_portal = std::make_unique<Portal>(m_device.Get(), rtvHandle, srvHandle);
+	auto srv = m_cbvSrvUavHeap->ReserveSRV("Portal");
+	m_portal = std::make_unique<Portal>(m_device.Get(), rtvHandle, srv);
+	//auto srvHandle = m_cbvSrvUavHeap->GetFreeHandle();
+	//m_portal = std::make_unique<Portal>(m_device.Get(), rtvHandle, srvHandle);
 
 	// Create command list
 	// Create command list, and set it to closed state
