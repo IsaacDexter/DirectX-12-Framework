@@ -63,20 +63,19 @@ void Engine::Update()
     // Update the camera based on input previously passed to it.
     m_camera->Update(deltaTime);
 
-    // Update constant buffer
-    XMMATRIX view = m_camera->GetView();
-    XMMATRIX projection = m_camera->GetProj();
-
-
+    // Update scene objects
     for (auto sceneObject : m_sceneObjects)
     {
-        sceneObject->Update(deltaTime, view, projection);
+        sceneObject->Update(deltaTime);
     }
 }
 
 void Engine::Render()
 {
-    m_renderer->Render(m_sceneObjects, m_selectedObject);
+    // Update constant buffer
+    XMMATRIX view = m_camera->GetView();
+    XMMATRIX proj = m_camera->GetProj();
+    m_renderer->Render(m_sceneObjects, m_selectedObject, view, proj);
 }
 
 void Engine::OnKeyDown(WPARAM wParam)

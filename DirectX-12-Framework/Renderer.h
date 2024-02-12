@@ -32,7 +32,7 @@ public:
 	*/
 	void Initialize(HWND hWnd, const UINT width, const UINT height);
 	void Update();
-	void Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject);
+	void Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);
 	void Destroy();
 	void Resize(const UINT width, const UINT height);
 
@@ -180,7 +180,7 @@ private:
 
 #pragma region Rendering
 
-	void PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objects);
+	void PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objects, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);
 
 #pragma endregion
 };

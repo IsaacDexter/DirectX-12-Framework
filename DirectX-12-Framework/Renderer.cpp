@@ -37,7 +37,7 @@ void Renderer::Update()
 
 }
 
-void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject)
+void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection)
 {/*
     - Populate command list
 	    - Reset command list allocator
@@ -66,7 +66,7 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shar
 
 
     // Record all rendering commands into the command list
-    PopulateCommandList(objects);
+    PopulateCommandList(objects, view, projection);
 
     // Execute the command list
     // Put the command list into an array (of one) for execution on the queue
@@ -1293,7 +1293,7 @@ void Renderer::WaitForGpu()
 }
 
 
-void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objects)
+void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objects, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection)
 {
     // Command list allocators can only be reset when the associated 
     // command lists have finished execution on the GPU; apps should use 
@@ -1386,6 +1386,7 @@ void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objec
         // Draw object
         for (auto object : objects)
         {
+            object->UpdateConstantBuffer(view, projection);
             object->Draw(m_commandList.Get());
         }
 

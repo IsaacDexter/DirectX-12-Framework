@@ -11,7 +11,8 @@ class SceneObject
 public:
 	SceneObject(std::shared_ptr<Primitive> model, std::shared_ptr<Texture> texture, std::shared_ptr<ConstantBuffer> constantBuffer, std::string name);
 	virtual void Initialize();
-	virtual void Update(const float& deltaTime, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);
+	virtual void Update(const float deltaTime) {};
+	void UpdateConstantBuffer(const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);
 	void Draw(ID3D12GraphicsCommandList* commandList);
 
 	const DirectX::XMFLOAT3& GetPosition() const
