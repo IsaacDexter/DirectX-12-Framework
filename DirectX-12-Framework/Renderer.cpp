@@ -135,6 +135,7 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shar
 					char buffer[500];
 					sprintf_s(buffer, 500, "Setting camera ...");
 					OutputDebugStringA(buffer);
+					// TODO: THESE VIEW AND PROJ ARE WRONG!
 					object->UpdateConstantBuffer(m_portal->GetView(), m_portal->GetProj());
 					object->Draw(commandList.Get());
 				}
