@@ -53,10 +53,9 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Device4> m_device;
 	// I think this should be called m_frameBuffers, but wikipedia says its just one word. Go figure.
 	std::array<std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, ResourceHandle>, Renderer::m_frameCount> m_framebuffers;
+	UINT m_frameIndex;
 
-	std::array<Microsoft::WRL::ComPtr<ID3D12CommandAllocator>, Renderer::m_frameCount > m_commandAllocators;
-	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_commandList;
-	Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_commandQueue;
+	
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_dsv;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_rootSignature;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pipelineState;
@@ -82,12 +81,7 @@ private:
 
 #pragma region Sync
 
-	UINT m_frameIndex;
-	HANDLE m_fenceEvent;
-	Microsoft::WRL::ComPtr<ID3D12Fence> m_fence;
-	std::array<UINT64, Renderer::m_frameCount> m_fenceValues;
-
-	std::unique_ptr<CommandQueue> m_commandQueue2;
+	std::unique_ptr<CommandQueue> m_commandQueue;
 
 #pragma endregion
 
@@ -177,14 +171,12 @@ private:
 	void DestroyGUI();
 	void RenderGUI(ID3D12GraphicsCommandList* commandList);
 
-	void MoveToNextFrame();
-	void WaitForGpu();
 
 #pragma endregion
 
 #pragma region Rendering
 
-	void PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objects, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);
+	void PopulateCommandList(ID3D12GraphicsCommandList* commandList, std::set<std::shared_ptr<SceneObject>>& objects, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);
 
 #pragma endregion
 };

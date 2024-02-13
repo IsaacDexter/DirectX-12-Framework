@@ -8,17 +8,14 @@ using namespace DirectX;
 
 #define _GUI
 
-Renderer::Renderer() :
-	m_fenceValues{},
-	m_framebuffers{},
-	m_commandAllocators{}
+Renderer::Renderer() 
+	: m_framebuffers{}
 {
 
 }
 
 void Renderer::Initialize(HWND hWnd, const UINT width, const UINT height)
 {
-	m_frameIndex = 0;
 	m_viewport = { 0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height) };
 	m_viewport.MinDepth = 0.0f;
 	m_viewport.MaxDepth = 1.0f;
@@ -62,31 +59,37 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shar
 	UpdateGUI(objects, selectedObject);
 
 	// Put the command list into an array (of one) for execution on the queue
-	if (m_cbvSrvUavHeap->Load(m_commandQueue.Get()))
-		WaitForGpu();
+	// TODO : Change this to take advantage of CommandQueue
+	if (m_cbvSrvUavHeap->Load(m_commandQueue->GetD3D12CommandQueue()))
+		m_commandQueue->Flush();
 
+	auto commandList = m_commandQueue->GetCommandList(m_pipelineState.Get());
 
 	// Record all rendering commands into the command list
-	PopulateCommandList(objects, view, projection);
+	PopulateCommandList(commandList.Get(), objects, view, projection);
 
 	// Execute the command list
 	// Put the command list into an array (of one) for execution on the queue
-	ID3D12CommandList* commandLists[] = { m_commandList.Get() };
-	m_commandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
+	m_commandQueue->ExecuteCommandList(commandList.Get());
 
 	// Present the frame
 	ThrowIfFailed(m_swapChain->Present(1, 0), "Failed to present frame.\n");
 
 	// proceed to the next frame
-	MoveToNextFrame();
+	// insert a signal into the queue, to stall the cpu with
+	auto frameFenceValue = m_commandQueue->Signal();
+
+	// update the index of the back buffer, which may not be sequential
+	m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+
+	// stall the CPU until any writable resources (i.e the back buffer's RTV) are finished being used
+	m_commandQueue->WaitForFenceValue(frameFenceValue);
 }
 
 void Renderer::Destroy()
 {
 	// Wait for the GPU to be done with all resources.
-	WaitForGpu();
-
-	CloseHandle(m_fenceEvent);
+	m_commandQueue->Flush();
 
 	DestroyGUI();
 }
@@ -96,7 +99,7 @@ void Renderer::Resize(UINT width, UINT height)
 
 	// flush the GPU queue to ensure the buffers aren't currently in use
 	// I think this is the problem
-	WaitForGpu();
+	m_commandQueue->Flush();
 
 	for (int i = 0; i < m_frameCount; ++i)
 	{
@@ -119,7 +122,8 @@ void Renderer::Resize(UINT width, UINT height)
 		swapChainDesc.Flags
 	));
 	// update the back buffer index known by the application, as it may not be the same as the resized version
-	MoveToNextFrame();
+	m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+
 	// as the swap chain buffers have been resized, update their descriptors too
 	UpdateFramebuffers();
 
@@ -161,7 +165,7 @@ std::shared_ptr<ConstantBuffer> Renderer::CreateConstantBuffer()
 */
 void Renderer::InitializePipeline(HWND hWnd, const UINT width, const UINT height)
 {
-#if defined (_DEBUG)
+	#if defined (_DEBUG)
 	{
 		ComPtr<ID3D12Debug> debugController;
 		if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
@@ -171,70 +175,58 @@ void Renderer::InitializePipeline(HWND hWnd, const UINT width, const UINT height
 
 		}
 	}
-#endif
-// create the device
-auto hardwareAdapter = GetAdapter(m_useWarpDevice);
-m_device = CreateDevice(hardwareAdapter);
-//CreateDevice();
+	#endif
+	// create the device
+	auto hardwareAdapter = GetAdapter(m_useWarpDevice);
+	m_device = CreateDevice(hardwareAdapter);
+	//CreateDevice();
 
-// create the direct command queue
-m_commandQueue = CreateCommandQueue(m_device, D3D12_COMMAND_LIST_TYPE_DIRECT);
+	// create the direct command queue
+	m_commandQueue = std::make_unique<CommandQueue>(m_device, D3D12_COMMAND_LIST_TYPE_DIRECT);
 
-m_swapChain = CreateSwapChain(hWnd, m_commandQueue, width, height, m_frameCount);
+	m_swapChain = CreateSwapChain(hWnd, m_commandQueue->GetD3D12CommandQueue(), width, height, m_frameCount);
 
-// Create descriptor heaps
-{
-	// Describe and create the Depth Stencil View (DSV) descriptor heap
+	// Create descriptor heaps
 	{
-		D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
-		dsvHeapDesc.NumDescriptors = 1; // 1 depth stencil view,
-		dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;  // in a depth stencil view heap,
-		dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;    // invisible to the shaders.
-		ThrowIfFailed(m_device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_dsvHeap)));
-		m_dsvHeap->SetName(L"m_dsvHeap");
+		// Describe and create the Depth Stencil View (DSV) descriptor heap
+		{
+			D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
+			dsvHeapDesc.NumDescriptors = 1; // 1 depth stencil view,
+			dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;  // in a depth stencil view heap,
+			dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;    // invisible to the shaders.
+			ThrowIfFailed(m_device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&m_dsvHeap)));
+			m_dsvHeap->SetName(L"m_dsvHeap");
+		}
+
+		// Describe and create sampler descriptor heap
+		{
+			D3D12_DESCRIPTOR_HEAP_DESC samplerHeapDesc = {};
+			samplerHeapDesc.NumDescriptors = 1;
+			samplerHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;  // Sampler type
+			samplerHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  // Let the samplers be accessed by shaders
+			ThrowIfFailed(m_device->CreateDescriptorHeap(&samplerHeapDesc, IID_PPV_ARGS(&m_samplerHeap)));
+			m_samplerHeap->SetName(L"m_samplerHeap");
+		}
+
+
 	}
 
-	// Describe and create sampler descriptor heap
+	UpdateDepthStencilView(m_dsv, m_dsvHeap, width, height);
+
+
+	// Create the swapChain
 	{
-		D3D12_DESCRIPTOR_HEAP_DESC samplerHeapDesc = {};
-		samplerHeapDesc.NumDescriptors = 1;
-		samplerHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;  // Sampler type
-		samplerHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  // Let the samplers be accessed by shaders
-		ThrowIfFailed(m_device->CreateDescriptorHeap(&samplerHeapDesc, IID_PPV_ARGS(&m_samplerHeap)));
-		m_samplerHeap->SetName(L"m_samplerHeap");
+
+		D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
+		rtvHeapDesc.NumDescriptors = 8;
+		rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;  //RTV type
+		rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;    // This heap needs no binding to pipeline
+		m_rtvHeap = std::make_unique<DescriptorHeap>(m_device.Get(), rtvHeapDesc);
 	}
 
-
+	// Create the swapChain
+	CreateFramebuffers();
 }
-
-UpdateDepthStencilView(m_dsv, m_dsvHeap, width, height);
-
-
-// Create the swapChain
-{
-
-	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
-	rtvHeapDesc.NumDescriptors = 8;
-	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;  //RTV type
-	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;    // This heap needs no binding to pipeline
-	m_rtvHeap = std::make_unique<DescriptorHeap>(m_device.Get(), rtvHeapDesc);
-}
-
-// Create the swapChain
-CreateFramebuffers();
-
-
-
-// Create frame resources
-{
-	// Create a command allocator for every frame
-	for (UINT n = 0; n < m_frameCount; n++)
-	{
-		ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocators[n])), "Couldn't create command allocator.\n");
-	}
-}
-}
-
 
 
 Microsoft::WRL::ComPtr<ID3D12Debug> Renderer::EnableDebugLayer()
@@ -586,22 +578,23 @@ void Renderer::InitializeAssets(const UINT width, const UINT height)
 	//auto srvHandle = m_cbvSrvUavHeap->GetFreeHandle();
 	//m_portal = std::make_unique<Portal>(m_device.Get(), rtvHandle, srvHandle);
 
-	// Create command list
-	// Create command list, and set it to closed state
-	ThrowIfFailed(m_device->CreateCommandList(
-		0,  // 0 for single GPU, for multi-adapter
-		D3D12_COMMAND_LIST_TYPE_DIRECT, // Create a direct command list that the GPU can execute
-		m_commandAllocators[m_frameIndex].Get(),   // Command allocator associated with this list
-		m_pipelineState.Get(),  // Pipeline state
-		IID_PPV_ARGS(&m_commandList)
-	), "Failed to create command list.\n");
+	//// Create command list
+	//// Create command list, and set it to closed state
+	//ThrowIfFailed(m_device->CreateCommandList(
+	//	0,  // 0 for single GPU, for multi-adapter
+	//	D3D12_COMMAND_LIST_TYPE_DIRECT, // Create a direct command list that the GPU can execute
+	//	m_commandAllocators[m_frameIndex].Get(),   // Command allocator associated with this list
+	//	m_pipelineState.Get(),  // Pipeline state
+	//	IID_PPV_ARGS(&m_commandList)
+	//), "Failed to create command list.\n");
+
+
+	//// Close the command list and execute it to begin the initial GPU setup.
+	//ThrowIfFailed(m_commandList->Close());
+	//ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
+	//m_ID3D12CommandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 
 	CreateSampler();
-
-	// Close the command list and execute it to begin the initial GPU setup.
-	ThrowIfFailed(m_commandList->Close());
-	ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
-	m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 
 	CreateSyncObjects();
 }
@@ -707,22 +700,22 @@ Microsoft::WRL::ComPtr<ID3D12RootSignature> Renderer::CreateRootSignature()
 
 void Renderer::CreateSyncObjects()
 {
-	// Create synchronization objects
+	//// Create synchronization objects
 
-	ThrowIfFailed(m_device->CreateFence(m_fenceValues[m_frameIndex], D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
-	m_fenceValues[m_frameIndex]++;
+	//ThrowIfFailed(m_device->CreateFence(m_fenceValues[m_frameIndex], D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
+	//m_fenceValues[m_frameIndex]++;
 
-	// Create an event handle to use for frame synchronization.
-	m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-	if (m_fenceEvent == nullptr)
-	{
-		ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
-	}
+	//// Create an event handle to use for frame synchronization.
+	//m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+	//if (m_fenceEvent == nullptr)
+	//{
+	//	ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
+	//}
 
-	// Wait for the command list to execute; we are reusing the same command 
-	// list in our main loop but for now, we just want to wait for setup to 
-	// complete before continuing.
-	WaitForGpu();
+	//// Wait for the command list to execute; we are reusing the same command 
+	//// list in our main loop but for now, we just want to wait for setup to 
+	//// complete before continuing.
+	//WaitForGpu();
 
 }
 
@@ -1211,84 +1204,40 @@ void Renderer::RenderGUI(ID3D12GraphicsCommandList* commandList)
 #endif
 }
 
-void Renderer::MoveToNextFrame()
+
+void Renderer::PopulateCommandList(ID3D12GraphicsCommandList* commandList, std::set<std::shared_ptr<SceneObject>>& objects, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection)
 {
-	// Schedule a signal command in the queue
-	// Store the fence value to set in the next frame's fence value
-	const UINT64 currentFenceValue = m_fenceValues[m_frameIndex];
-	ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), currentFenceValue));
-
-	// Update the frame index
-	m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
-
-	// Wait until the frame is ready
-	if (m_fence->GetCompletedValue() < m_fenceValues[m_frameIndex])
-	{
-		// Wait until the fence has been processed
-		ThrowIfFailed(m_fence->SetEventOnCompletion(m_fenceValues[m_frameIndex], m_fenceEvent));
-		WaitForSingleObjectEx(m_fenceEvent, INFINITE, FALSE);
-	}
-
-	// Set the next frame's fence value
-	m_fenceValues[m_frameIndex] = currentFenceValue + 1;
-}
-
-void Renderer::WaitForGpu()
-{
-	// Schedule a signal command in the queue
-	ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), m_fenceValues[m_frameIndex]));
-
-	// Wait until the fence has been processed
-	ThrowIfFailed(m_fence->SetEventOnCompletion(m_fenceValues[m_frameIndex], m_fenceEvent));
-	WaitForSingleObjectEx(m_fenceEvent, INFINITE, FALSE);
-
-	m_fenceValues[m_frameIndex]++;
-}
-
-
-void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objects, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection)
-{
-	// Command list allocators can only be reset when the associated 
-	// command lists have finished execution on the GPU; apps should use 
-	// fences to determine GPU execution progress.
-	ThrowIfFailed(m_commandAllocators[m_frameIndex]->Reset());
-
-	// However, when ExecuteCommandList() is called on a particular command 
-	// list, that command list can then be reset at any time and must be before 
-	// re-recording.
-	ThrowIfFailed(m_commandList->Reset(m_commandAllocators[m_frameIndex].Get(), m_pipelineState.Get()));
-
 	// Set necessary state.
-	m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+	commandList->SetGraphicsRootSignature(m_rootSignature.Get());
 	// Set command list shader resource view and constant buffer view
 	ID3D12DescriptorHeap* ppHeaps[] = { m_cbvSrvUavHeap->GetDescriptorHeap(), m_samplerHeap.Get() };
-	m_commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
+	commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
 	// Describe how samplers are laid out to GPU
-	m_commandList->SetGraphicsRootDescriptorTable(DescriptorHeap::RootParameterIndices::Sampler, m_samplerHeap->GetGPUDescriptorHandleForHeapStart());
+	commandList->SetGraphicsRootDescriptorTable(DescriptorHeap::RootParameterIndices::Sampler, m_samplerHeap->GetGPUDescriptorHandleForHeapStart());
 
-	m_commandList->RSSetViewports(1, &m_viewport);
-	m_commandList->RSSetScissorRects(1, &m_scissorRect);
+	commandList->RSSetViewports(1, &m_viewport);
+	commandList->RSSetScissorRects(1, &m_scissorRect);
 
-	m_portal->Draw(m_commandList.Get(), m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), objects);
+	m_portal->Draw(commandList, m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), objects);
 
 	// Indicate that the back buffer will be used as a render target.
 	{
 		auto renderTarget = m_framebuffers[m_frameIndex];
 
 		auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget.first.Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
-		m_commandList->ResourceBarrier(1, &barrier);
+		commandList->ResourceBarrier(1, &barrier);
 
 		// Set CPU handles for Render Target Views (RTVs) and Depth Stencil Views (DSVs) heaps
 		auto rtvHandle = renderTarget.second.cpuDescriptorHandle;
 		CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
-		m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
+		commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
 
 		// Record commands.
 		// Clear the RTVs and DSVs
 		const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
-		m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
-		m_commandList->ClearDepthStencilView(
+		commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+		commandList->ClearDepthStencilView(
 			dsvHandle,  // Aforementioned handle to DSV heap
 			D3D12_CLEAR_FLAG_DEPTH, // Clear just the depth, not the stencil
 			1.0f,   // Value to clear the depth to  
@@ -1301,20 +1250,20 @@ void Renderer::PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objec
 		for (auto object : objects)
 		{
 			object->UpdateConstantBuffer(view, projection);
-			object->Draw(m_commandList.Get());
+			object->Draw(commandList);
 		}
 
 
 
-		RenderGUI(m_commandList.Get());
+		RenderGUI(commandList);
 
 
 		// Indicate that the back buffer will now be used to present.
 		barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget.first.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
-		m_commandList->ResourceBarrier(1, &barrier);
+		commandList->ResourceBarrier(1, &barrier);
 	}
 
 
-	ThrowIfFailed(m_commandList->Close());
+	//ThrowIfFailed(commandList->Close());
 }
 
