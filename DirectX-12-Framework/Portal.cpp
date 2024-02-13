@@ -120,8 +120,6 @@ const DirectX::XMMATRIX& Portal::GetProj()
 void Portal::Draw(ID3D12GraphicsCommandList* commandList, D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle, std::set<std::shared_ptr<SceneObject>>& objects)
 // Indicate that render texture will be used as the render target
 {
-
-
 	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_renderTexture.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
 	commandList->ResourceBarrier(1, &barrier);
 
