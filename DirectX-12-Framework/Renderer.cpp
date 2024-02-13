@@ -24,6 +24,8 @@ void Renderer::Initialize(HWND hWnd, const UINT width, const UINT height)
 	// Initialize Assets
 	InitializePipeline(hWnd, width, height);
 	InitializeAssets(width, height);
+	m_portalCamera = std::make_unique<Camera>(XMFLOAT3(0.0f, 0.0f, 3.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), static_cast<float>(width)/ static_cast<float>(height));
+
 	InitializeGUI(hWnd);
 
 }
@@ -35,7 +37,7 @@ void Renderer::Update()
 
 }
 
-void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection)
+void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection, const DirectX::XMMATRIX& portalView, const DirectX::XMMATRIX& portalProjection)
 {/*
 	- Populate command list
 		- Reset command list allocator
@@ -114,7 +116,7 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shar
 
 				// Record commands.
 				// Clear the RTVs and DSVs
-				const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
+				const float clearColor[] = { 0.5f, 0.1f, 0.55f, 1.0f };
 				commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 				commandList->ClearDepthStencilView(
 					dsvHandle,  // Aforementioned handle to DSV heap
@@ -132,11 +134,8 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shar
 					{
 						continue;
 					}
-					char buffer[500];
-					sprintf_s(buffer, 500, "Setting camera ...");
-					OutputDebugStringA(buffer);
 					// TODO: THESE VIEW AND PROJ ARE WRONG!
-					object->UpdateConstantBuffer(m_portal->GetView(), m_portal->GetProj());
+					object->UpdateConstantBuffer(portalView, portalProjection);
 					object->Draw(commandList.Get());
 				}
 
@@ -165,6 +164,7 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shar
 		auto commandList = m_commandQueue->GetCommandList(m_pipelineState.Get());
 		commandList->SetName(L"Backbuffer Command List");
 		PopulateCommandList(commandList.Get(), renderTarget.first.Get(), rtvHandle, D3D12_RESOURCE_STATE_PRESENT, objects, view, projection);
+		//PopulateCommandList(commandList.Get(), renderTarget.first.Get(), rtvHandle, D3D12_RESOURCE_STATE_PRESENT, objects, m_portalCamera->GetView(), m_portalCamera->GetProj());
 		m_commandQueue->ExecuteCommandList(commandList.Get());
 	}
 	// Execute the command list
@@ -232,6 +232,7 @@ void Renderer::Resize(UINT width, UINT height)
 	m_viewport.Width = float(width);
 	m_viewport.Height = float(height);
 
+	m_portalCamera->SetAspectRatio(static_cast<float>(width) / static_cast<float>(height));
 }
 
 std::shared_ptr<Texture> Renderer::CreateTexture(const wchar_t* path, std::string name)
@@ -1342,9 +1343,6 @@ void Renderer::PopulateCommandList(ID3D12GraphicsCommandList* commandList, ID3D1
 		// Draw object
 		for (auto object : objects)
 		{
-			char buffer[500];
-			sprintf_s(buffer, 500, "Setting camera ...");
-			OutputDebugStringA(buffer);
 			object->UpdateConstantBuffer(view, projection);
 			object->Draw(commandList);
 		}

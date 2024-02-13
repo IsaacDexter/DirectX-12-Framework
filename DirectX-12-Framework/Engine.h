@@ -21,6 +21,7 @@ public:
 protected:
 	std::set<std::shared_ptr<SceneObject>> m_sceneObjects;
 	std::unique_ptr<Camera> m_camera;
+	std::unique_ptr<Camera> m_portalCamera;
 
 	std::unique_ptr<Renderer> m_renderer;
 	std::unique_ptr<Window> m_window;

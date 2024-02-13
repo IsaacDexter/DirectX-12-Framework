@@ -34,7 +34,7 @@ public:
 	*/
 	void Initialize(HWND hWnd, const UINT width, const UINT height);
 	void Update();
-	void Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);
+	void Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection, const DirectX::XMMATRIX& portalView, const DirectX::XMMATRIX& portalProjection);
 	void Destroy();
 	void Resize(const UINT width, const UINT height);
 
@@ -76,6 +76,7 @@ private:
 	std::shared_ptr<Texture> m_renderTextureSrv;
 	ResourceHandle m_renderTextureRtvDescriptorHandle;
 	std::unique_ptr<Portal> m_portal;
+	std::unique_ptr<Camera> m_portalCamera;
 
 #pragma endregion
 
