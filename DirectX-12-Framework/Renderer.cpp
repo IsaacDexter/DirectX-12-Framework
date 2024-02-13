@@ -92,65 +92,20 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shar
 		auto rtvState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 		auto commandList = m_commandQueue->GetCommandList(m_pipelineState.Get());
 		commandList->SetName(L"Portal Command List");
-		{
-			// Set necessary state.
-			commandList->SetGraphicsRootSignature(m_rootSignature.Get());
-			// Set command list shader resource view and constant buffer view
-			ID3D12DescriptorHeap* ppHeaps[] = { m_cbvSrvUavHeap->GetDescriptorHeap(), m_samplerHeap.Get() };
-			commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
-			// Describe how samplers are laid out to GPU
-			commandList->SetGraphicsRootDescriptorTable(DescriptorHeap::RootParameterIndices::Sampler, m_samplerHeap->GetGPUDescriptorHandleForHeapStart());
+		// Set necessary state.
+		commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+		// Set command list shader resource view and constant buffer view
+		ID3D12DescriptorHeap* ppHeaps[] = { m_cbvSrvUavHeap->GetDescriptorHeap(), m_samplerHeap.Get() };
+		commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
-			commandList->RSSetViewports(1, &m_viewport);
-			commandList->RSSetScissorRects(1, &m_scissorRect);
+		// Describe how samplers are laid out to GPU
+		commandList->SetGraphicsRootDescriptorTable(DescriptorHeap::RootParameterIndices::Sampler, m_samplerHeap->GetGPUDescriptorHandleForHeapStart());
 
-			// Indicate that the back buffer will be used as a render target.
-			{
-				auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, rtvState, D3D12_RESOURCE_STATE_RENDER_TARGET);
-				commandList->ResourceBarrier(1, &barrier);
+		commandList->RSSetViewports(1, &m_viewport);
+		commandList->RSSetScissorRects(1, &m_scissorRect);
 
-				// Set CPU handles for Render Target Views (RTVs) and Depth Stencil Views (DSVs) heaps
-				CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
-				commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
-
-				// Record commands.
-				// Clear the RTVs and DSVs
-				const float clearColor[] = { 0.5f, 0.1f, 0.55f, 1.0f };
-				commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
-				commandList->ClearDepthStencilView(
-					dsvHandle,  // Aforementioned handle to DSV heap
-					D3D12_CLEAR_FLAG_DEPTH, // Clear just the depth, not the stencil
-					1.0f,   // Value to clear the depth to  
-					0,  // Value to clear the stencil view
-					0, nullptr  // Clear the whole view. Set these to only clear specific rects.
-				);
-				// Update Model View Projection (MVP) Matrix according to camera position
-
-				// Draw object
-				for (auto object : objects)
-				{
-					XMMATRIX pView = m_portalCamera->GetView();
-					XMMATRIX pProj = m_portalCamera->GetProj();
-					if (object->GetTexture()->GetName() == "Portal")
-					{
-						continue;
-					}
-					// TODO: THESE VIEW AND PROJ ARE WRONG!
-					object->UpdateConstantBuffer(m_portal->GetView(), m_portal->GetProj());
-					object->Draw(commandList.Get());
-				}
-
-
-				// Indicate that the back buffer will now be used to present.
-				barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET, rtvState);
-				commandList->ResourceBarrier(1, &barrier);
-			}
-
-
-			//ThrowIfFailed(commandList->Close());
-		}
-		
+		m_portal->Draw(commandList.Get(), m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), objects);
 		m_commandQueue->ExecuteCommandList(commandList.Get());
 	}
 	{

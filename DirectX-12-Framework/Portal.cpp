@@ -149,7 +149,7 @@ void Portal::Draw(ID3D12GraphicsCommandList* commandList, D3D12_CPU_DESCRIPTOR_H
 			continue;
 		}
 	
-		//object->UpdateConstantBuffer(m_camera->GetView(), m_camera->GetProj());
+		object->UpdateConstantBuffer(m_camera->GetView(), m_camera->GetProj());
 		object->Draw(commandList);
 		
 	}
