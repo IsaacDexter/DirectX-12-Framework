@@ -579,9 +579,9 @@ void Renderer::CreateFramebuffers()
 	{
 		ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&m_framebuffers[n].first)));
 		// Get a free handle pair on the RTV heap, then create an RTV at it and store the RTV and its handle.
-		auto descriptorHandle = m_rtvHeap->GetFreeHandle();
-		m_device->CreateRenderTargetView(m_framebuffers[n].first.Get(), nullptr, descriptorHandle.cpuDescriptorHandle);
-		m_framebuffers[n].second = descriptorHandle;
+		auto descriptorHandle = m_rtvHeap->GetFreeCpuHandle();
+		m_device->CreateRenderTargetView(m_framebuffers[n].first.Get(), nullptr, descriptorHandle);
+		m_framebuffers[n].second.cpuDescriptorHandle = descriptorHandle;
 	}
 }
 
@@ -669,9 +669,9 @@ void Renderer::InitializeAssets(const UINT width, const UINT height)
 		m_cbvSrvUavHeap = std::make_unique<CbvSrvUavHeap>(m_device.Get(), cbvSrvUavHeapDesc, m_pipelineState.Get());
 	}
 	
-	auto rtvHandle = m_rtvHeap->GetFreeHandle();
+	auto rtvHandle = m_rtvHeap->GetFreeCpuHandle();
 	auto srv = m_cbvSrvUavHeap->ReserveSRV("Portal");
-	m_portal = std::make_unique<Portal>(m_device.Get(), rtvHandle, srv, static_cast<float>(width) / static_cast<float>(height));
+	m_portal = std::make_unique<Portal>(m_device.Get(), ResourceHandle(rtvHandle, CD3DX12_GPU_DESCRIPTOR_HANDLE(D3D12_DEFAULT)), srv, static_cast<float>(width) / static_cast<float>(height));
 	//auto srvHandle = m_cbvSrvUavHeap->GetFreeHandle();
 	//m_portal = std::make_unique<Portal>(m_device.Get(), rtvHandle, srvHandle);
 
