@@ -37,7 +37,7 @@ void Renderer::Update()
 
 }
 
-void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection, const DirectX::XMMATRIX& portalView, const DirectX::XMMATRIX& portalProjection)
+void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection)
 {/*
 	- Populate command list
 		- Reset command list allocator
@@ -130,12 +130,14 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shar
 				// Draw object
 				for (auto object : objects)
 				{
+					XMMATRIX pView = m_portalCamera->GetView();
+					XMMATRIX pProj = m_portalCamera->GetProj();
 					if (object->GetTexture()->GetName() == "Portal")
 					{
 						continue;
 					}
 					// TODO: THESE VIEW AND PROJ ARE WRONG!
-					object->UpdateConstantBuffer(portalView, portalProjection);
+					object->UpdateConstantBuffer(m_portal->GetView(), m_portal->GetProj());
 					object->Draw(commandList.Get());
 				}
 

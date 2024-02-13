@@ -14,7 +14,6 @@ Engine::Engine(HINSTANCE hInstance) :
 void Engine::Initialize()
 {
     m_camera = std::make_unique<Camera>(XMFLOAT3(0.0f, 0.0f, 3.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), m_window->GetAspectRatio());
-    m_portalCamera = std::make_unique<Camera>(XMFLOAT3(0.0f, 3.0f, 3.0f), XMFLOAT3(0.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), m_window->GetAspectRatio());
     //m_sceneObjects.emplace(std::make_shared<SceneObject>(m_renderer->CreateModel(L"Cube", "Cube"), nullptr, m_renderer->CreateConstantBuffer(), "Cube"));
     //m_sceneObjects.emplace(std::make_shared<SceneObject>(m_renderer->CreateModel(L"Pyramid", "Pyramid"), nullptr, m_renderer->CreateConstantBuffer(), "Pyramid"));
     auto cube = std::make_shared<SceneObject>(m_renderer->CreateModel(L"Cube", "Cube"), m_renderer->CreateTexture(L"Assets/Tiles.dds", "Tiles"), m_renderer->CreateConstantBuffer(), "Cube");
@@ -66,7 +65,6 @@ void Engine::Update()
 
     // Update the camera based on input previously passed to it.
     m_camera->Update(deltaTime);
-    m_portalCamera->Update(deltaTime);
 
     // Update scene objects
     for (auto sceneObject : m_sceneObjects)
@@ -80,9 +78,7 @@ void Engine::Render()
     // Update constant buffer
     XMMATRIX view = m_camera->GetView();
     XMMATRIX proj = m_camera->GetProj();
-    XMMATRIX portalView = m_portalCamera->GetView();
-    XMMATRIX portalProj = m_portalCamera->GetProj();
-    m_renderer->Render(m_sceneObjects, m_selectedObject, portalView, portalProj, view, proj);
+    m_renderer->Render(m_sceneObjects, m_selectedObject, view, proj);
 }
 
 void Engine::OnKeyDown(WPARAM wParam)
@@ -109,14 +105,12 @@ void Engine::OnKeyDown(WPARAM wParam)
     default:
         break;
     }
-    //m_camera->OnKeyDown(wParam);
-    m_portalCamera->OnKeyDown(wParam);
+    m_camera->OnKeyDown(wParam);
 }
 
 void Engine::OnKeyUp(WPARAM wParam)
 {
-    //m_camera->OnKeyUp(wParam);
-    m_portalCamera->OnKeyUp(wParam);
+    m_camera->OnKeyUp(wParam);
 }
 
 void Engine::OnMouseMove(int x, int y, WPARAM wParam)
@@ -132,14 +126,12 @@ void Engine::OnMouseMove(int x, int y, WPARAM wParam)
     {
     case MK_LBUTTON:
     {
-        //m_camera->OnMouseMove(dX, dY, wParam);
-        m_portalCamera->OnMouseMove(dX, dY, wParam);
+        m_camera->OnMouseMove(dX, dY, wParam);
     }
     break;
     case MK_RBUTTON:
     {
-        //m_selectedObject = Pick(m_camera->GetPosition(), CreateRay(x, y));
-        m_selectedObject = Pick(m_portalCamera->GetPosition(), CreateRay(x, y));
+        m_selectedObject = Pick(m_camera->GetPosition(), CreateRay(x, y));
     }
     break;
     default:
@@ -159,7 +151,6 @@ void Engine::OnResize()
         auto width = m_window->GetClientWidth();
         auto height = m_window->GetClientHeight();
         m_camera->SetAspectRatio(static_cast<float>(width) / static_cast<float>(height));
-        m_portalCamera->SetAspectRatio(static_cast<float>(width) / static_cast<float>(height));
         m_renderer->Resize(width, height);
     }
 }
@@ -171,12 +162,9 @@ void Engine::CreateObject()
 
 XMFLOAT3 Engine::CreateRay(int x, int y)
 {
-    /*XMMATRIX proj = m_camera->GetProj();
+    XMMATRIX proj = m_camera->GetProj();
     XMMATRIX view = m_camera->GetView();
-    XMMATRIX world = m_camera->GetWorld();*/
-    XMMATRIX proj = m_portalCamera->GetProj();
-    XMMATRIX view = m_portalCamera->GetView();
-    XMMATRIX world = m_portalCamera->GetWorld();
+    XMMATRIX world = m_camera->GetWorld();
 
     UINT width = m_window->GetClientWidth();
     UINT height = m_window->GetClientHeight();
