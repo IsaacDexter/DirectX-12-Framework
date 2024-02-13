@@ -16,8 +16,11 @@ void Engine::Initialize()
     m_camera = std::make_unique<Camera>(XMFLOAT3(0.0f, 0.0f, 3.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), m_window->GetAspectRatio());
     //m_sceneObjects.emplace(std::make_shared<SceneObject>(m_renderer->CreateModel(L"Cube", "Cube"), nullptr, m_renderer->CreateConstantBuffer(), "Cube"));
     //m_sceneObjects.emplace(std::make_shared<SceneObject>(m_renderer->CreateModel(L"Pyramid", "Pyramid"), nullptr, m_renderer->CreateConstantBuffer(), "Pyramid"));
-    m_sceneObjects.emplace(std::make_shared<SceneObject>(m_renderer->CreateModel(L"Cube", "Cube"), m_renderer->CreateTexture(L"Assets/Tiles.dds", "Tiles"), m_renderer->CreateConstantBuffer(), "Cube"));
+    auto cube = std::make_shared<SceneObject>(m_renderer->CreateModel(L"Cube", "Cube"), m_renderer->CreateTexture(L"Assets/Tiles.dds", "Tiles"), m_renderer->CreateConstantBuffer(), "Cube");
+    m_sceneObjects.emplace(cube);
+    cube->SetPosition(1.0f, 0.0f, 0.0f);
     m_sceneObjects.emplace(std::make_shared<SceneObject>(m_renderer->CreateModel(L"Pyramid", "Pyramid"), m_renderer->CreateTexture(L"Assets/Sand.dds", "Sand"), m_renderer->CreateConstantBuffer(), "Pyramid"));
+    
 }
 
 void Engine::Update()

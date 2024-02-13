@@ -56,11 +56,11 @@ using namespace DirectX;
 //	}
 //}
 
-Portal::Portal(ID3D12Device* device, const ResourceHandle rtvHandle, const std::shared_ptr<Texture> srv) :
+Portal::Portal(ID3D12Device* device, const ResourceHandle rtvHandle, const std::shared_ptr<Texture> srv, const float aspectRatio) :
 m_rtvHandle(rtvHandle),
 m_srv(srv)
 {
-	m_camera = std::make_unique<Camera>(DirectX::XMFLOAT3(0.0f, 0.0f, 3.0f), DirectX::XMFLOAT3(0.0f, 0.0f, -1.0f), DirectX::XMFLOAT3(0.0f, 1.0f, 0.0f));
+	m_camera = std::make_unique<Camera>(DirectX::XMFLOAT3(0.0f, 0.0f, 3.0f), DirectX::XMFLOAT3(0.0f, 0.0f, -1.0f), DirectX::XMFLOAT3(0.0f, 1.0f, 0.0f), aspectRatio);
 	// Create the render texture
 	{
 		// Describe the render texture
@@ -146,11 +146,11 @@ void Portal::Draw(ID3D12GraphicsCommandList* commandList, D3D12_CPU_DESCRIPTOR_H
 		{
 			continue;
 		}
+	
 		object->UpdateConstantBuffer(m_camera->GetView(), m_camera->GetProj());
 		object->Draw(commandList);
 		
 	}
-	//RenderGUI(m_commandList.Get());
 
 	// Indicate that the back buffer will now be used to present.
 	barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_renderTexture.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);

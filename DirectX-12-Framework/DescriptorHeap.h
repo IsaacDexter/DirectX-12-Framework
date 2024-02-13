@@ -26,6 +26,7 @@ public:
     };
 
     const ResourceHandle GetFreeHandle();
+    const D3D12_CPU_DESCRIPTOR_HANDLE GetFreeCpuHandle();
 protected:
     virtual void CreateHeap(ID3D12Device* device, const D3D12_DESCRIPTOR_HEAP_DESC desc);
 

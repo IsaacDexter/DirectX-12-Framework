@@ -33,11 +33,6 @@ ComPtr<ID3D12GraphicsCommandList> CommandQueue::GetCommandList(ID3D12PipelineSta
     ComPtr<ID3D12CommandAllocator> commandAllocator;
     ComPtr<ID3D12GraphicsCommandList> commandList;
 
-    if (m_commandAllocatorQueue.size() > 1)
-    {
-        OutputDebugStringA("Command Allocator Queue exceeded one.\n");
-    }
-
     // obtain an unused command allocator, that is not currently in flight on the command queue
     // if there are any valid items in the queue, and the first (oldest) one has finished...
     if (!m_commandAllocatorQueue.empty() && IsFenceComplete(m_commandAllocatorQueue.front().fenceValue))

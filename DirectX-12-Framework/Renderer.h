@@ -76,6 +76,7 @@ private:
 	std::shared_ptr<Texture> m_renderTextureSrv;
 	ResourceHandle m_renderTextureRtvDescriptorHandle;
 	std::unique_ptr<Portal> m_portal;
+	std::unique_ptr<Camera> m_portalCamera;
 
 #pragma endregion
 
@@ -176,7 +177,8 @@ private:
 
 #pragma region Rendering
 
-	void PopulateCommandList(ID3D12GraphicsCommandList* commandList, std::set<std::shared_ptr<SceneObject>>& objects, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);
+	void PrepareCommandList(ID3D12GraphicsCommandList* commandList);
+	void PopulateCommandList(ID3D12GraphicsCommandList* commandList, ID3D12Resource* renderTarget, D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle, std::set<std::shared_ptr<SceneObject>>& objects, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);
 
 #pragma endregion
 };
