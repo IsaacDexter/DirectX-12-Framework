@@ -114,7 +114,7 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shar
 
 				// Record commands.
 				// Clear the RTVs and DSVs
-				const float clearColor[] = { 1.0f, 0.2f, 0.4f, 1.0f };
+				const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
 				commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 				commandList->ClearDepthStencilView(
 					dsvHandle,  // Aforementioned handle to DSV heap
@@ -135,7 +135,7 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shar
 					char buffer[500];
 					sprintf_s(buffer, 500, "Setting camera ...");
 					OutputDebugStringA(buffer);
-					object->UpdateConstantBuffer(view, projection);
+					object->UpdateConstantBuffer(m_portal->GetView(), m_portal->GetProj());
 					object->Draw(commandList.Get());
 				}
 
