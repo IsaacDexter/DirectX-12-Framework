@@ -56,4 +56,5 @@ void ConstantBuffer::Update(const DirectX::XMMATRIX& model, const DirectX::XMMAT
 
 	// Update the constant buffer pointer with new data
 	memcpy(m_pCbvDataBegin, &m_constantBufferData, sizeof(m_constantBufferData));
+	OutputDebugStringA("Set complete.\n");
 }

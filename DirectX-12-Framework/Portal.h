@@ -11,7 +11,7 @@ class Texture;
 class Portal
 {
 public:
-	Portal(ID3D12Device* device, const ResourceHandle rtvHandle, const std::shared_ptr<Texture> srv);
+	Portal(ID3D12Device* device, const ResourceHandle rtvHandle, const std::shared_ptr<Texture> srv, const float aspectRatio);
 	//Portal(ID3D12Device* device, const ResourceHandle rtvHandle, const ResourceHandle srvHandle);
 	
 	void SetOtherPortal(std::shared_ptr<Portal> otherPortal)
@@ -24,6 +24,15 @@ public:
 	
 	void Draw(ID3D12GraphicsCommandList* commandList, D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle, std::set<std::shared_ptr<SceneObject>>& objects);
 	
+	ID3D12Resource* GetRtv()
+	{
+		return m_renderTexture.Get();
+	}
+
+	const ResourceHandle GetHandle()
+	{
+		return m_rtvHandle;
+	}
 
 private:
 	/** 

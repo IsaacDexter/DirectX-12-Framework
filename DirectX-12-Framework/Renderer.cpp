@@ -63,25 +63,122 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shar
 	if (m_cbvSrvUavHeap->Load(m_commandQueue->GetD3D12CommandQueue()))
 		m_commandQueue->Flush();
 
-	auto commandList = m_commandQueue->GetCommandList(m_pipelineState.Get());
+	//{
+	//	auto portalCommandList = m_commandQueue->GetCommandList(m_pipelineState.Get());
+	//	portalCommandList->SetName(L"Portal Command List");
+	//	// Set necessary state.
+	//	portalCommandList->SetGraphicsRootSignature(m_rootSignature.Get());
+	//	// Set command list shader resource view and constant buffer view
+	//	ID3D12DescriptorHeap* ppHeaps[] = { m_cbvSrvUavHeap->GetDescriptorHeap(), m_samplerHeap.Get() };
+	//	portalCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
+
+	//	// Describe how samplers are laid out to GPU
+	//	portalCommandList->SetGraphicsRootDescriptorTable(DescriptorHeap::RootParameterIndices::Sampler, m_samplerHeap->GetGPUDescriptorHandleForHeapStart());
+
+	//	portalCommandList->RSSetViewports(1, &m_viewport);
+	//	portalCommandList->RSSetScissorRects(1, &m_scissorRect);
+
+	//	m_portal->Draw(portalCommandList.Get(), m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), objects);
+	//	m_commandQueue->ExecuteCommandList(portalCommandList.Get());
+	//}
+
 
 	// Record all rendering commands into the command list
-	PopulateCommandList(commandList.Get(), objects, view, projection);
+	{
+		auto renderTarget = m_portal->GetRtv();
+		auto rtvHandle = m_portal->GetHandle().cpuDescriptorHandle;
+		auto rtvState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+		auto commandList = m_commandQueue->GetCommandList(m_pipelineState.Get());
+		commandList->SetName(L"Portal Command List");
+		{
+			// Set necessary state.
+			commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+			// Set command list shader resource view and constant buffer view
+			ID3D12DescriptorHeap* ppHeaps[] = { m_cbvSrvUavHeap->GetDescriptorHeap(), m_samplerHeap.Get() };
+			commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
+			// Describe how samplers are laid out to GPU
+			commandList->SetGraphicsRootDescriptorTable(DescriptorHeap::RootParameterIndices::Sampler, m_samplerHeap->GetGPUDescriptorHandleForHeapStart());
+
+			commandList->RSSetViewports(1, &m_viewport);
+			commandList->RSSetScissorRects(1, &m_scissorRect);
+
+			// Indicate that the back buffer will be used as a render target.
+			{
+				auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, rtvState, D3D12_RESOURCE_STATE_RENDER_TARGET);
+				commandList->ResourceBarrier(1, &barrier);
+
+				// Set CPU handles for Render Target Views (RTVs) and Depth Stencil Views (DSVs) heaps
+				CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
+				commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
+
+				// Record commands.
+				// Clear the RTVs and DSVs
+				const float clearColor[] = { 1.0f, 0.2f, 0.4f, 1.0f };
+				commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+				commandList->ClearDepthStencilView(
+					dsvHandle,  // Aforementioned handle to DSV heap
+					D3D12_CLEAR_FLAG_DEPTH, // Clear just the depth, not the stencil
+					1.0f,   // Value to clear the depth to  
+					0,  // Value to clear the stencil view
+					0, nullptr  // Clear the whole view. Set these to only clear specific rects.
+				);
+				// Update Model View Projection (MVP) Matrix according to camera position
+
+				// Draw object
+				for (auto object : objects)
+				{
+					if (object->GetTexture()->GetName() == "Portal")
+					{
+						continue;
+					}
+					char buffer[500];
+					sprintf_s(buffer, 500, "Setting camera ...");
+					OutputDebugStringA(buffer);
+					object->UpdateConstantBuffer(view, projection);
+					object->Draw(commandList.Get());
+				}
+
+
+				// Indicate that the back buffer will now be used to present.
+				barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET, rtvState);
+				commandList->ResourceBarrier(1, &barrier);
+			}
+
+
+			//ThrowIfFailed(commandList->Close());
+		}
+		
+		m_commandQueue->ExecuteCommandList(commandList.Get());
+	}
+	{
+		// proceed to the next frame
+		// insert a signal into the queue, to stall the cpu with
+		auto frameFenceValue = m_commandQueue->Signal();
+		// stall the CPU until any writable resources (i.e the back buffer's RTV) are finished being used
+		m_commandQueue->WaitForFenceValue(frameFenceValue);
+	}
+	{
+		auto renderTarget = m_framebuffers[m_frameIndex];
+		auto rtvHandle = renderTarget.second.cpuDescriptorHandle;
+		auto commandList = m_commandQueue->GetCommandList(m_pipelineState.Get());
+		commandList->SetName(L"Backbuffer Command List");
+		PopulateCommandList(commandList.Get(), renderTarget.first.Get(), rtvHandle, D3D12_RESOURCE_STATE_PRESENT, objects, view, projection);
+		m_commandQueue->ExecuteCommandList(commandList.Get());
+	}
 	// Execute the command list
 	// Put the command list into an array (of one) for execution on the queue
-	m_commandQueue->ExecuteCommandList(commandList.Get());
 
 	// Present the frame
 	ThrowIfFailed(m_swapChain->Present(1, 0), "Failed to present frame.\n");
 
-	// proceed to the next frame
-	// insert a signal into the queue, to stall the cpu with
-	auto frameFenceValue = m_commandQueue->Signal();
 
 	// update the index of the back buffer, which may not be sequential
 	m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
 
+	// proceed to the next frame
+	// insert a signal into the queue, to stall the cpu with
+	auto frameFenceValue = m_commandQueue->Signal();
 	// stall the CPU until any writable resources (i.e the back buffer's RTV) are finished being used
 	m_commandQueue->WaitForFenceValue(frameFenceValue);
 }
@@ -574,7 +671,7 @@ void Renderer::InitializeAssets(const UINT width, const UINT height)
 	
 	auto rtvHandle = m_rtvHeap->GetFreeHandle();
 	auto srv = m_cbvSrvUavHeap->ReserveSRV("Portal");
-	m_portal = std::make_unique<Portal>(m_device.Get(), rtvHandle, srv);
+	m_portal = std::make_unique<Portal>(m_device.Get(), rtvHandle, srv, static_cast<float>(width) / static_cast<float>(height));
 	//auto srvHandle = m_cbvSrvUavHeap->GetFreeHandle();
 	//m_portal = std::make_unique<Portal>(m_device.Get(), rtvHandle, srvHandle);
 
@@ -1205,7 +1302,7 @@ void Renderer::RenderGUI(ID3D12GraphicsCommandList* commandList)
 }
 
 
-void Renderer::PopulateCommandList(ID3D12GraphicsCommandList* commandList, std::set<std::shared_ptr<SceneObject>>& objects, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection)
+void Renderer::PopulateCommandList(ID3D12GraphicsCommandList* commandList, ID3D12Resource* renderTarget, D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle, const D3D12_RESOURCE_STATES rtvState, std::set<std::shared_ptr<SceneObject>>& objects, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection)
 {
 	// Set necessary state.
 	commandList->SetGraphicsRootSignature(m_rootSignature.Get());
@@ -1219,17 +1316,12 @@ void Renderer::PopulateCommandList(ID3D12GraphicsCommandList* commandList, std::
 	commandList->RSSetViewports(1, &m_viewport);
 	commandList->RSSetScissorRects(1, &m_scissorRect);
 
-	m_portal->Draw(commandList, m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), objects);
-
 	// Indicate that the back buffer will be used as a render target.
 	{
-		auto renderTarget = m_framebuffers[m_frameIndex];
-
-		auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget.first.Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+		auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, rtvState, D3D12_RESOURCE_STATE_RENDER_TARGET);
 		commandList->ResourceBarrier(1, &barrier);
 
 		// Set CPU handles for Render Target Views (RTVs) and Depth Stencil Views (DSVs) heaps
-		auto rtvHandle = renderTarget.second.cpuDescriptorHandle;
 		CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
 		commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
 
@@ -1249,6 +1341,9 @@ void Renderer::PopulateCommandList(ID3D12GraphicsCommandList* commandList, std::
 		// Draw object
 		for (auto object : objects)
 		{
+			char buffer[500];
+			sprintf_s(buffer, 500, "Setting camera ...");
+			OutputDebugStringA(buffer);
 			object->UpdateConstantBuffer(view, projection);
 			object->Draw(commandList);
 		}
@@ -1259,7 +1354,7 @@ void Renderer::PopulateCommandList(ID3D12GraphicsCommandList* commandList, std::
 
 
 		// Indicate that the back buffer will now be used to present.
-		barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget.first.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+		barrier = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET, rtvState);
 		commandList->ResourceBarrier(1, &barrier);
 	}
 

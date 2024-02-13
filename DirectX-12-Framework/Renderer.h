@@ -176,7 +176,7 @@ private:
 
 #pragma region Rendering
 
-	void PopulateCommandList(ID3D12GraphicsCommandList* commandList, std::set<std::shared_ptr<SceneObject>>& objects, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);
+	void PopulateCommandList(ID3D12GraphicsCommandList* commandList, ID3D12Resource* renderTarget, D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle, const D3D12_RESOURCE_STATES rtvState, std::set<std::shared_ptr<SceneObject>>& objects, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);
 
 #pragma endregion
 };
