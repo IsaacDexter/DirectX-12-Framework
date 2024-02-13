@@ -15,7 +15,10 @@
 #include "Texture.h"
 #include "ConstantBuffer.h"
 #include "CbvSrvUavHeap.h"
+#include "RtvHeap.h"
 #include "SceneObject.h"
+#include "Portal.h"
+#include "CommandQueue.h"
 
 class Renderer
 {
@@ -29,11 +32,11 @@ public:
 		- Render
 	3. Destroy
 	*/
-	void Initialize(HWND hWnd, UINT width, UINT height);
+	void Initialize(HWND hWnd, const UINT width, const UINT height);
 	void Update();
-	void Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject);
+	void Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);
 	void Destroy();
-	void Resize(UINT width, UINT height);
+	void Resize(const UINT width, const UINT height);
 
 	std::shared_ptr<Texture> CreateTexture(const wchar_t* path, std::string name);
 	std::shared_ptr<Primitive> CreateModel(const wchar_t* path, std::string name);
@@ -48,16 +51,14 @@ private:
 	D3D12_RECT m_scissorRect;
 	Microsoft::WRL::ComPtr<IDXGISwapChain3> m_swapChain;
 	Microsoft::WRL::ComPtr<ID3D12Device4> m_device;
-	std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Renderer::m_frameCount> m_renderTargets;
-	std::array<Microsoft::WRL::ComPtr<ID3D12CommandAllocator>, Renderer::m_frameCount > m_commandAllocators;
-	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_commandList;
-	Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_commandQueue;
+	// I think this should be called m_frameBuffers, but wikipedia says its just one word. Go figure.
+	std::array<std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, ResourceHandle>, Renderer::m_frameCount> m_framebuffers;
+	UINT m_frameIndex;
+
+	
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_dsv;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_rootSignature;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pipelineState;
-
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
-	UINT m_rtvDescriptorSize;
 
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_samplerHeap;
@@ -71,23 +72,23 @@ private:
 
 
 	std::unique_ptr<CbvSrvUavHeap> m_cbvSrvUavHeap;
-	
+	std::unique_ptr<DescriptorHeap> m_rtvHeap;
+	std::shared_ptr<Texture> m_renderTextureSrv;
+	ResourceHandle m_renderTextureRtvDescriptorHandle;
+	std::unique_ptr<Portal> m_portal;
 
 #pragma endregion
 
 #pragma region Sync
 
-	UINT m_frameIndex;
-	HANDLE m_fenceEvent;
-	Microsoft::WRL::ComPtr<ID3D12Fence> m_fence;
-	std::array<UINT64, Renderer::m_frameCount> m_fenceValues;
+	std::unique_ptr<CommandQueue> m_commandQueue;
 
 #pragma endregion
 
 private:
 #pragma region Initialization
 
-	void InitializePipeline(HWND hWnd, UINT width, UINT height);
+	void InitializePipeline(HWND hWnd, const UINT width, const UINT height);
 
 	Microsoft::WRL::ComPtr<ID3D12Debug> EnableDebugLayer();
 	/**
@@ -133,7 +134,8 @@ private:
 	*/
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(Microsoft::WRL::ComPtr<ID3D12Device4> device, const D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors, UINT &descriptorSize);
 
-	void UpdateRenderTargetViews(Microsoft::WRL::ComPtr<ID3D12Device4> device, Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> rtvHeap, Microsoft::WRL::ComPtr<IDXGISwapChain3> swapChain, std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, Renderer::m_frameCount>& renderTargets);
+	void CreateFramebuffers();
+	void UpdateFramebuffers();
 
 	/**
 	* Check if screen tearing should be allowed for variable refresh displays
@@ -141,7 +143,7 @@ private:
 	*/
 	bool CheckTearingSupport();
 
-	void InitializeAssets();
+	void InitializeAssets(const UINT width, const UINT height);
 
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> CreateRootSignature();
 
@@ -169,14 +171,12 @@ private:
 	void DestroyGUI();
 	void RenderGUI(ID3D12GraphicsCommandList* commandList);
 
-	void MoveToNextFrame();
-	void WaitForGpu();
 
 #pragma endregion
 
 #pragma region Rendering
 
-	void PopulateCommandList(std::set<std::shared_ptr<SceneObject>>& objects);
+	void PopulateCommandList(ID3D12GraphicsCommandList* commandList, std::set<std::shared_ptr<SceneObject>>& objects, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);
 
 #pragma endregion
 };

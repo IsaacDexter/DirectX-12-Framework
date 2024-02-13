@@ -1,39 +1,20 @@
 #include "DescriptorHeap.h"
-
-void DescriptorHeap::CreateCommandList(ID3D12Device* device, ID3D12PipelineState* pipelineState)
-{
-    ThrowIfFailed(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocator)), "Couldn't create command allocator.\n");
-
-    // Create command list, and set it to closed state
-    ThrowIfFailed(device->CreateCommandList(
-        0,  // 0 for single GPU, for multi-adapter
-        D3D12_COMMAND_LIST_TYPE_DIRECT, // Create a direct command list that the GPU can execute
-        m_commandAllocator.Get(),   // Command allocator associated with this list
-        pipelineState,  // Pipeline state
-        IID_PPV_ARGS(&m_commandList)
-    ), "Failed to create command list.\n");
-}
+#include "DescriptorHeap.h"
 
 
-DescriptorHeap::DescriptorHeap(ID3D12Device* device, ID3D12PipelineState* pipelineState) : 
+DescriptorHeap::DescriptorHeap(ID3D12Device* device, const D3D12_DESCRIPTOR_HEAP_DESC desc) :
     m_freeHandles()
 {
-    CreateCommandList(device, pipelineState);
+    CreateHeap(device, desc);
 }
 
-bool DescriptorHeap::Load(ID3D12CommandQueue* commandQueue)
+void DescriptorHeap::CreateHeap(ID3D12Device* device, const D3D12_DESCRIPTOR_HEAP_DESC desc)
 {
-    bool load = m_load;
-    if (load)
-    {
-        m_load = false;
-        m_commandList->Close();
+    ThrowIfFailed(device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_descriptorHeap)));
+    m_descriptorHeap->SetName(L"m_descriptorHeap");
 
-        ID3D12CommandList* loadCommandLists[] = { m_commandList.Get() };
-        commandQueue->ExecuteCommandLists(_countof(loadCommandLists), loadCommandLists);
-        m_resetRequired = true;
-    }
-    return load;
+    // How much to offset the shared SRV/SBV heap by to get the next available handle
+    m_descriptorSize = device->GetDescriptorHandleIncrementSize(desc.Type);
 }
 
 const ResourceHandle DescriptorHeap::GetFreeHandle()

@@ -70,26 +70,37 @@ const std::shared_ptr<Primitive> CbvSrvUavHeap::CreateModel(ID3D12Device* device
 
 }
 
-CbvSrvUavHeap::CbvSrvUavHeap(ID3D12Device* device, ID3D12PipelineState* pipelineState) : DescriptorHeap(device, pipelineState)
+CbvSrvUavHeap::CbvSrvUavHeap(ID3D12Device* device, const D3D12_DESCRIPTOR_HEAP_DESC desc, ID3D12PipelineState* pipelineState) :
+    DescriptorHeap(device, desc)
 {
-    CreateHeap(device);
+    CreateCommandList(device, pipelineState);
 }
 
-void CbvSrvUavHeap::CreateHeap(ID3D12Device* device)
+void CbvSrvUavHeap::CreateCommandList(ID3D12Device* device, ID3D12PipelineState* pipelineState)
 {
-    // Describe and create a Shader Resource View (SRV) heap for the texture.
-    // This heap also contains the Constant Buffer Views. These are in the same heap because
-    // CBVs, SRVs, and UAVs can be combined into a single descriptor table.
-    // This means the descriptor heap needn't be changed in the command list, which is slow and rarely used.
-    // https://learn.microsoft.com/en-us/windows/win32/direct3d12/resource-binding-flow-of-control
+    ThrowIfFailed(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocator)), "Couldn't create command allocator.\n");
 
-    D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-    srvHeapDesc.NumDescriptors = 1024;
-    srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;  // SRV type
-    srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  // Allow this heap to be bound to the pipeline
-    ThrowIfFailed(device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_descriptorHeap)));
-    m_descriptorHeap->SetName(L"m_descriptorHeap");
+    // Create command list, and set it to closed state
+    ThrowIfFailed(device->CreateCommandList(
+        0,  // 0 for single GPU, for multi-adapter
+        D3D12_COMMAND_LIST_TYPE_DIRECT, // Create a direct command list that the GPU can execute
+        m_commandAllocator.Get(),   // Command allocator associated with this list
+        pipelineState,  // Pipeline state
+        IID_PPV_ARGS(&m_commandList)
+    ), "Failed to create command list.\n");
+}
 
-    // How much to offset the shared SRV/SBV heap by to get the next available handle
-    m_descriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+bool CbvSrvUavHeap::Load(ID3D12CommandQueue* commandQueue)
+{
+    bool load = m_load;
+    if (load)
+    {
+        m_load = false;
+        m_commandList->Close();
+
+        ID3D12CommandList* loadCommandLists[] = { m_commandList.Get() };
+        commandQueue->ExecuteCommandLists(_countof(loadCommandLists), loadCommandLists);
+        m_resetRequired = true;
+    }
+    return load;
 }

@@ -3,7 +3,8 @@
 class CbvSrvUavHeap : public DescriptorHeap
 {
 public:
-    CbvSrvUavHeap(ID3D12Device* device, ID3D12PipelineState* pipelineState);
+    CbvSrvUavHeap(ID3D12Device* device, const D3D12_DESCRIPTOR_HEAP_DESC desc, ID3D12PipelineState* pipelineState);
+    bool Load(ID3D12CommandQueue* commandQueue);
 
     const std::shared_ptr<Texture> CreateTexture(ID3D12Device* device, ID3D12PipelineState* pipelineState, const wchar_t* path, std::string name);
     const std::shared_ptr<Texture> ReserveSRV(std::string name);
@@ -12,7 +13,14 @@ public:
 
 protected:
     friend class Renderer;
-	void CreateHeap(ID3D12Device* device) override;
+    void CreateCommandList(ID3D12Device* device, ID3D12PipelineState* pipelineState);
+
+    // Shader resource view heap for accessing data in a resource (texture)
+    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_commandList;
+    Microsoft::WRL::ComPtr<ID3D12CommandAllocator> m_commandAllocator;
+
+    bool m_load = false;
+    bool m_resetRequired = false;
 
     /**
     * std::array could be useful for contiguous memory with constant buffer views and shader resource views stored acontiguously in memory

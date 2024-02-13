@@ -11,6 +11,10 @@ struct ResourceHandle
 	{
 
 	}
+	ResourceHandle()
+	{
+
+	}
 };
 
 class Resource
@@ -28,6 +32,14 @@ public:
 	const ResourceHandle& GetResourceHandle()
 	{
 		return m_resourceHandle;
+	}
+	ID3D12Resource* GetResource()
+	{
+		return m_resource.Get();
+	}
+	void SetResource(ID3D12Resource* resource)
+	{
+		m_resource = resource;
 	}
 	const UINT& GetRootParameterIndex()
 	{

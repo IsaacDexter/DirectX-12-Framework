@@ -12,8 +12,7 @@
 class DescriptorHeap
 {
 public:
-    DescriptorHeap(ID3D12Device* device, ID3D12PipelineState* pipelineState);
-    bool Load(ID3D12CommandQueue* commandQueue);
+    DescriptorHeap(ID3D12Device* device, const D3D12_DESCRIPTOR_HEAP_DESC desc);
     ID3D12DescriptorHeap* GetDescriptorHeap()
     {
         return m_descriptorHeap.Get();
@@ -25,13 +24,11 @@ public:
         CBV,
         Sampler,
     };
-protected:
-    virtual void CreateHeap(ID3D12Device* device) = 0;
-    void CreateCommandList(ID3D12Device* device, ID3D12PipelineState* pipelineState);
 
-	// Shader resource view heap for accessing data in a resource (texture)
-    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_commandList;
-    Microsoft::WRL::ComPtr<ID3D12CommandAllocator> m_commandAllocator;
+    const ResourceHandle GetFreeHandle();
+protected:
+    virtual void CreateHeap(ID3D12Device* device, const D3D12_DESCRIPTOR_HEAP_DESC desc);
+
 
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_descriptorHeap;
     UINT m_descriptorSize;
@@ -43,9 +40,5 @@ protected:
     */
     std::queue<ResourceHandle> m_freeHandles;
 
-    bool m_load = false;
-    bool m_resetRequired = false;
-
-    const ResourceHandle GetFreeHandle();
 };
 

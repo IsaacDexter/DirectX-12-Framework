@@ -22,6 +22,11 @@ public:
 	*/
 	bool Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, const wchar_t* path);
 
+	void Reset()
+	{
+		m_resource.Reset();
+	}
+
 protected:
 	// Note: ComPtr's are CPU objects but this resource needs to stay in scope until
 	// the command list that references it has finished executing on the GPU.
