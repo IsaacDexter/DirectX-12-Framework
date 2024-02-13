@@ -18,6 +18,7 @@
 #include "RtvHeap.h"
 #include "SceneObject.h"
 #include "Portal.h"
+#include "CommandQueue.h"
 
 class Renderer
 {
@@ -85,6 +86,8 @@ private:
 	HANDLE m_fenceEvent;
 	Microsoft::WRL::ComPtr<ID3D12Fence> m_fence;
 	std::array<UINT64, Renderer::m_frameCount> m_fenceValues;
+
+	std::unique_ptr<CommandQueue> m_commandQueue2;
 
 #pragma endregion
 
