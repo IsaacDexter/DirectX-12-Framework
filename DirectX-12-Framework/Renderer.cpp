@@ -24,8 +24,6 @@ void Renderer::Initialize(HWND hWnd, const UINT width, const UINT height)
 	// Initialize Assets
 	InitializePipeline(hWnd, width, height);
 	InitializeAssets(width, height);
-	m_portalCamera = std::make_unique<Camera>(XMFLOAT3(0.0f, 0.0f, 3.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), static_cast<float>(width)/ static_cast<float>(height));
-
 	InitializeGUI(hWnd);
 
 }
@@ -71,11 +69,9 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shar
 		auto commandList = m_commandQueue->GetCommandList(m_pipelineState.Get());
 		commandList->SetName(L"Portal Command List");
 		PrepareCommandList(commandList.Get());
-		m_portal->DrawTexture(commandList.Get(), m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), objects);
+		m_portal1->DrawTexture(commandList.Get(), m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), objects);
 		m_commandQueue->ExecuteCommandList(commandList.Get());
 	}
-
-
 	{
 		// proceed to the next frame
 		// insert a signal into the queue, to stall the cpu with
@@ -83,6 +79,22 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shar
 		// stall the CPU until any writable resources (i.e the back buffer's RTV) are finished being used
 		m_commandQueue->WaitForFenceValue(frameFenceValue);
 	}
+	{
+		auto commandList = m_commandQueue->GetCommandList(m_pipelineState.Get());
+		commandList->SetName(L"Portal Command List");
+		PrepareCommandList(commandList.Get());
+		m_portal2->DrawTexture(commandList.Get(), m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), objects);
+		m_commandQueue->ExecuteCommandList(commandList.Get());
+	}
+	{
+		// proceed to the next frame
+		// insert a signal into the queue, to stall the cpu with
+		auto frameFenceValue = m_commandQueue->Signal();
+		// stall the CPU until any writable resources (i.e the back buffer's RTV) are finished being used
+		m_commandQueue->WaitForFenceValue(frameFenceValue);
+	}
+
+
 	{
 		auto backBuffer = m_framebuffers[m_frameIndex].first;
 		auto backBufferCpuDescriptorHandle = m_framebuffers[m_frameIndex].second;
@@ -158,8 +170,6 @@ void Renderer::Resize(UINT width, UINT height)
 	// Update the viewport also    
 	m_viewport.Width = float(width);
 	m_viewport.Height = float(height);
-
-	m_portalCamera->SetAspectRatio(static_cast<float>(width) / static_cast<float>(height));
 }
 
 std::shared_ptr<ShaderResourceView> Renderer::CreateTexture(const wchar_t* path, std::string name)
@@ -595,14 +605,28 @@ void Renderer::InitializeAssets(const UINT width, const UINT height)
 
 		m_cbvSrvUavHeap = std::make_unique<CbvSrvUavHeap>(m_device.Get(), cbvSrvUavHeapDesc, m_pipelineState.Get());
 	}
-	
-	D3D12_CPU_DESCRIPTOR_HANDLE rtvCpuDescriptorHandle;
-	m_rtvHeap->GetFreeHandle(rtvCpuDescriptorHandle);
+
 	auto model = CreateModel(L"Cube", "Portal");
-	auto srv = m_cbvSrvUavHeap->ReserveShaderResourceView("Portal");
-	auto cbv = CreateConstantBuffer();
-	m_portal = std::make_unique<Portal>(m_device.Get(), rtvCpuDescriptorHandle, model, srv, cbv, "Portal");
-	m_portal->SetScale(1.0f, 1.0f, 0.0f);
+	{
+		auto srv = m_cbvSrvUavHeap->ReserveShaderResourceView("Portal1");
+		D3D12_CPU_DESCRIPTOR_HANDLE rtvCpuDescriptorHandle;
+		m_rtvHeap->GetFreeHandle(rtvCpuDescriptorHandle);
+		m_portal1 = std::make_shared<Portal>(m_device.Get(), rtvCpuDescriptorHandle, model, srv, CreateConstantBuffer(), "Portal1");
+		m_portal1->SetScale(XMFLOAT3(1.0f, 1.0f, 0.0f));
+		m_portal1->SetPosition(XMFLOAT3(1.0f, 0.0f, 0.0f));
+	}
+	{
+		auto srv = m_cbvSrvUavHeap->ReserveShaderResourceView("Portal2");
+		D3D12_CPU_DESCRIPTOR_HANDLE rtvCpuDescriptorHandle;
+		m_rtvHeap->GetFreeHandle(rtvCpuDescriptorHandle);
+		m_portal2 = std::make_shared<Portal>(m_device.Get(), rtvCpuDescriptorHandle, model, srv, CreateConstantBuffer(), "Portal2");
+		m_portal2->SetScale(XMFLOAT3(1.0f, 1.0f, 0.0f));
+		m_portal2->SetPosition(XMFLOAT3(-1.0f, 0.0f, 0.0f));
+	}
+
+	m_portal1->SetOtherPortal(m_portal2);
+	m_portal2->SetOtherPortal(m_portal1);
+
 
 	CreateSampler();
 
@@ -834,10 +858,11 @@ Microsoft::WRL::ComPtr<ID3D12PipelineState> Renderer::CreatePipelineStateObject(
 	// define render target count and render target formats
 
 	CD3DX12_RT_FORMAT_ARRAY rtvFormats;
-	rtvFormats.NumRenderTargets = 2;    // define render target count
+	rtvFormats.NumRenderTargets = 3;    // define render target count
 	std::fill(std::begin(rtvFormats.RTFormats), std::end(rtvFormats.RTFormats), DXGI_FORMAT_UNKNOWN);   // set to unknown format for unused render targets
-	rtvFormats.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;   // define render target format for the first (only) render target
-	rtvFormats.RTFormats[1] = DXGI_FORMAT_R8G8B8A8_UNORM;   // define render target format for the first (only) render target
+	rtvFormats.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;   // define render target format for the first (real) render target
+	rtvFormats.RTFormats[1] = DXGI_FORMAT_R8G8B8A8_UNORM;   // define render target format for the second (portal) render target
+	rtvFormats.RTFormats[2] = DXGI_FORMAT_R8G8B8A8_UNORM;   // define render target format for the third (portal) render target
 
 	// Default sample mode without anti aliasing
 	DXGI_SAMPLE_DESC sampleDesc = {};
@@ -992,7 +1017,7 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 			float position[3] = { selectedObject->GetPosition().x, selectedObject->GetPosition().y, selectedObject->GetPosition().z };
 			if (ImGui::DragFloat3("##Position", position, 0.1f))
 			{
-				selectedObject->SetPosition(position[0], position[1], position[2]);
+				selectedObject->SetPosition(XMFLOAT3(position[0], position[1], position[2]));
 			}
 		}
 		// Rotation
@@ -1002,7 +1027,7 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 			float rotation[3] = { selectedObject->GetRotation().x, selectedObject->GetRotation().y, selectedObject->GetRotation().z };
 			if (ImGui::DragFloat3("##Rotation", rotation, 0.1f))
 			{
-				selectedObject->SetRotation(rotation[0], rotation[1], rotation[2]);
+				selectedObject->SetRotation(XMFLOAT3(rotation[0], rotation[1], rotation[2]));
 			}
 		}
 		// Scale
@@ -1012,7 +1037,7 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 			float scale[3] = { selectedObject->GetScale().x, selectedObject->GetScale().y, selectedObject->GetScale().z };
 			if (ImGui::DragFloat3("##Scale", scale, 0.1f))
 			{
-				selectedObject->SetScale(scale[0], scale[1], scale[2]);
+				selectedObject->SetScale(XMFLOAT3(scale[0], scale[1], scale[2]));
 			}
 		}
 		// Texture
@@ -1260,8 +1285,10 @@ void Renderer::PopulateCommandList(ID3D12GraphicsCommandList* commandList, ID3D1
 		object->UpdateConstantBuffer(view, projection);
 		object->Draw(commandList);
 	}
-	m_portal->UpdateConstantBuffer(view, projection);
-	m_portal->Draw(commandList);
+	m_portal1->UpdateConstantBuffer(view, projection);
+	m_portal1->Draw(commandList);
+	m_portal2->UpdateConstantBuffer(view, projection);
+	m_portal2->Draw(commandList);
 
 	RenderGUI(commandList);
 

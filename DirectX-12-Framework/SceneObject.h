@@ -20,20 +20,10 @@ public:
 		return m_position;
 	}
 
-	void SetPosition(const DirectX::XMFLOAT3& position)
+	virtual void SetPosition(const DirectX::XMFLOAT3& position)
 	{
 		m_position = position;
 		m_boundingBox.Center = position;
-	}
-
-	void SetPosition(const float& x, const float& y, const float& z)
-	{
-		m_position.x = x;
-		m_position.y = y;
-		m_position.z = z;
-		m_boundingBox.Center.x = x;
-		m_boundingBox.Center.y = y;
-		m_boundingBox.Center.z = z;
 	}
 
 	const DirectX::XMFLOAT3& GetRotation() const
@@ -41,10 +31,7 @@ public:
 		return m_rotation;
 	}
 
-	void SetRotation(const DirectX::XMFLOAT3& rotation);
-	
-	
-	void SetRotation(const float& roll, const float& pitch, const float& yaw);
+	virtual void SetRotation(const DirectX::XMFLOAT3& rotation);
 	
 
 	const DirectX::XMFLOAT3& GetScale() const
@@ -60,15 +47,6 @@ public:
 		m_boundingBox.Extents.z = scale.z / 2.0f;
 	}
 	
-	virtual void SetScale(const float& x, const float& y, const float& z)
-	{
-		m_scale.x = x;
-		m_scale.y = y;
-		m_scale.z = z;
-		m_boundingBox.Extents.x = x / 2.0f;
-		m_boundingBox.Extents.y = y / 2.0f;
-		m_boundingBox.Extents.z = z / 2.0f;
-	}
 
 	const DirectX::XMMATRIX GetWorld() const;
 	

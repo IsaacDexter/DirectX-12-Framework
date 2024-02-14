@@ -18,8 +18,8 @@ void Engine::Initialize()
     //m_sceneObjects.emplace(std::make_shared<SceneObject>(m_renderer->CreateModel(L"Pyramid", "Pyramid"), nullptr, m_renderer->CreateConstantBuffer(), "Pyramid"));
     auto skybox = std::make_shared<SceneObject>(m_renderer->CreateModel(L"Cube", "Cube"), m_renderer->CreateTexture(L"Assets/Tiles.dds", "Tiles"), m_renderer->CreateConstantBuffer(), "Skybox");
     m_sceneObjects.emplace(skybox);
-    skybox->SetPosition(0.0f, 4.5f, 0.0f);
-    skybox->SetScale(-10.0f, -10.0f, -10.0f);
+    skybox->SetPosition(XMFLOAT3(0.0f, 4.5f, 0.0f));
+    skybox->SetScale(XMFLOAT3(-10.0f, -10.0f, -10.0f));
     m_sceneObjects.emplace(std::make_shared<SceneObject>(m_renderer->CreateModel(L"Pyramid", "Pyramid"), m_renderer->CreateTexture(L"Assets/Sand.dds", "Sand"), m_renderer->CreateConstantBuffer(), "Pyramid"));
     
 }

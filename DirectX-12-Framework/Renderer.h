@@ -73,8 +73,8 @@ private:
 
 	std::unique_ptr<CbvSrvUavHeap> m_cbvSrvUavHeap;
 	std::unique_ptr<DescriptorHeap> m_rtvHeap;
-	std::unique_ptr<Portal> m_portal;
-	std::unique_ptr<Camera> m_portalCamera;
+	std::shared_ptr<Portal> m_portal1;
+	std::shared_ptr<Portal> m_portal2;
 
 #pragma endregion
 

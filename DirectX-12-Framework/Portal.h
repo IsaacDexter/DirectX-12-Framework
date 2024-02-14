@@ -20,9 +20,12 @@ public:
 	
 	void DrawTexture(ID3D12GraphicsCommandList* commandList, D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle, std::set<std::shared_ptr<SceneObject>>& objects);
 	
+	virtual void SetPosition(const DirectX::XMFLOAT3& position) override;
+	virtual void SetRotation(const DirectX::XMFLOAT3& rotation) override;
 	virtual void SetScale(const DirectX::XMFLOAT3& scale) override;
-	
-	virtual void SetScale(const float& x, const float& y, const float& z) override;
+
+	const DirectX::XMMATRIX GetView();
+	const DirectX::XMMATRIX GetProj();
 
 protected:
 	/** 

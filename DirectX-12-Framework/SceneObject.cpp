@@ -47,16 +47,6 @@ void SceneObject::SetRotation(const DirectX::XMFLOAT3& rotation)
     m_boundingBox.Orientation = orientation;
 }
 
-void SceneObject::SetRotation(const float& roll, const float& pitch, const float& yaw)
-{
-    m_rotation.x = roll;
-    m_rotation.y = pitch;
-    m_rotation.z = yaw;
-    XMFLOAT4 orientation;
-    XMStoreFloat4(&orientation, XMQuaternionRotationRollPitchYaw(roll, pitch, yaw));
-    m_boundingBox.Orientation = orientation;
-}
-
 const DirectX::XMMATRIX SceneObject::GetWorld() const
 {
     XMMATRIX translation = DirectX::XMMatrixTranslation(m_position.x, m_position.y, m_position.z);

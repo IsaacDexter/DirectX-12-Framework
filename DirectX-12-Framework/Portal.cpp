@@ -14,6 +14,9 @@ Portal::Portal(ID3D12Device* device, const D3D12_CPU_DESCRIPTOR_HANDLE rtvCpuDes
 	//XMStoreFloat3(&direction, rotation * forward);
 	direction = XMFLOAT3(0.0f, 0.0f, -1.0f);
 	m_camera = std::make_unique<Camera>(m_position, direction, DirectX::XMFLOAT3(0.0f, 1.0f, 0.0f), m_scale.x / m_scale.y);
+	SetPosition(m_position);
+	//SetRotation(m_rotation);
+	SetScale(m_scale);
 	// Create the render texture
 	{
 		// Describe the render texture
@@ -82,22 +85,38 @@ void Portal::DrawTexture(ID3D12GraphicsCommandList* commandList, D3D12_CPU_DESCR
 	);
 	// Update Model View Projection (MVP) Matrix according to camera position
 
-	// Draw object
-	for (auto object : objects)
+	// Draw objects from the view of the other portal
+	if (m_otherPortal)
 	{
-		if (object->GetTexture() == m_texture)
+		for (auto object : objects)
 		{
-			continue;
+			if (object->GetTexture() == m_texture)
+			{
+				continue;
+			}
+
+			object->UpdateConstantBuffer(m_otherPortal->GetView(), m_otherPortal->GetProj());
+			//object->UpdateConstantBuffer(m_camera->GetView(), m_camera->GetProj());
+			object->Draw(commandList);
+
 		}
-	
-		object->UpdateConstantBuffer(m_camera->GetView(), m_camera->GetProj());
-		object->Draw(commandList);
-		
 	}
 
 	// Indicate that the back buffer will now be used to present.
 	barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_texture->resource.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	commandList->ResourceBarrier(1, &barrier);
+}
+
+void Portal::SetPosition(const DirectX::XMFLOAT3& position)
+{
+	SceneObject::SetPosition(position);
+	m_camera->SetPosition(position);
+}
+
+void Portal::SetRotation(const DirectX::XMFLOAT3& rotation)
+{
+	SceneObject::SetRotation(rotation);
+	// TODO : Update camera direction according to rotation
 }
 
 void Portal::SetScale(const DirectX::XMFLOAT3& scale)
@@ -106,9 +125,13 @@ void Portal::SetScale(const DirectX::XMFLOAT3& scale)
 	m_camera->SetAspectRatio(scale.x / scale.y);
 }
 
-void Portal::SetScale(const float& x, const float& y, const float& z)
-{
-	SceneObject::SetScale(x, y, z);
-	m_camera->SetAspectRatio(x / y);
 
+const DirectX::XMMATRIX Portal::GetView()
+{
+	return m_camera->GetView();
+}
+
+const DirectX::XMMATRIX Portal::GetProj()
+{
+	return m_camera->GetProj();
 }
