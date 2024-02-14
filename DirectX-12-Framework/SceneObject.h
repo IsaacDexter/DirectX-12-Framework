@@ -12,9 +12,9 @@ class SceneObject
 public:
 	SceneObject(std::shared_ptr<Primitive> model, std::shared_ptr<Resource> texture, std::shared_ptr<ConstantBufferView> constantBuffer, std::string name);
 	virtual void Initialize() {};
+	virtual void Draw(ID3D12GraphicsCommandList* commandList);
 	virtual void Update(const double deltaTime) {};
 	void UpdateConstantBuffer(const DirectX::XMMATRIX view, const DirectX::XMMATRIX projection);
-	void Draw(ID3D12GraphicsCommandList* commandList);
 
 	const DirectX::XMFLOAT3& GetPosition() const
 	{

@@ -85,7 +85,7 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::set<
 			auto commandList = m_commandQueue->GetCommandList(m_pipelineState.Get());
 			commandList->SetName(L"Portal Command List");
 			PrepareCommandList(commandList.Get());
-			portal->DrawTexture(commandList.Get(), objects, camera);
+			portal->DrawTexture(commandList.Get());
 			m_commandQueue->ExecuteCommandList(commandList.Get());
 		}
 		{
