@@ -6,6 +6,7 @@
 class SceneObject;
 class Camera; 
 class Window;
+class Portal;
 
 class Engine
 {
@@ -20,6 +21,7 @@ public:
 	void OnResize();
 protected:
 	std::set<std::shared_ptr<SceneObject>> m_sceneObjects;
+	std::set<std::shared_ptr<Portal>> m_portals;
 	std::shared_ptr<Camera> m_camera;
 
 	std::unique_ptr<Renderer> m_renderer;

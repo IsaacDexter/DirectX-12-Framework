@@ -25,17 +25,17 @@ Camera::Camera(DirectX::XMFLOAT3 position, DirectX::XMFLOAT3 direction, DirectX:
 
 }
 
-const DirectX::XMMATRIX& Camera::GetView()
+const DirectX::XMMATRIX Camera::GetView()
 {
 	return XMMatrixLookToLH(XMLoadFloat3(&m_position), XMLoadFloat3(&m_direction), XMLoadFloat3(&m_up));
 }
 
-const DirectX::XMMATRIX& Camera::GetProj()
+const DirectX::XMMATRIX Camera::GetProj()
 {
 	return XMMatrixPerspectiveFovLH(0.8f, m_aspectRatio, m_nearZ, m_farZ);
 }
 
-const DirectX::XMMATRIX& Camera::GetWorld()
+const DirectX::XMMATRIX Camera::GetWorld()
 {
 	return XMMatrixTranslationFromVector(XMLoadFloat3(&m_position));
 }
@@ -120,7 +120,7 @@ void Camera::OnKeyUp(WPARAM input)
 	}
 }
 
-void Camera::Update(const float& deltaTime)
+void Camera::Update(const double deltaTime)
 {
 	// Move according to previously recieved keybard input
 	{

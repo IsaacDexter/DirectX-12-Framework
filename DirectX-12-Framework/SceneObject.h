@@ -1,17 +1,18 @@
 #pragma once
 #include "stdafx.h"
 #include <DirectXCollision.h>
+#include <string>
 
 class Primitive;
-struct ShaderResourceView;
+struct Resource;
 struct ConstantBufferView;
 
 class SceneObject
 {
 public:
-	SceneObject(std::shared_ptr<Primitive> model, std::shared_ptr<ShaderResourceView> texture, std::shared_ptr<ConstantBufferView> constantBuffer, std::string name);
+	SceneObject(std::shared_ptr<Primitive> model, std::shared_ptr<Resource> texture, std::shared_ptr<ConstantBufferView> constantBuffer, std::string name);
 	virtual void Initialize() {};
-	virtual void Update(const float deltaTime) {};
+	virtual void Update(const double deltaTime) {};
 	void UpdateConstantBuffer(const DirectX::XMMATRIX view, const DirectX::XMMATRIX projection);
 	void Draw(ID3D12GraphicsCommandList* commandList);
 
@@ -61,12 +62,12 @@ public:
 		m_model = model;
 	}
 
-	std::shared_ptr<ShaderResourceView> GetTexture()
+	std::shared_ptr<Resource> GetTexture()
 	{
 		return m_texture;
 	}
 
-	void SetTexture(std::shared_ptr<ShaderResourceView> texture)
+	void SetTexture(std::shared_ptr<Resource> texture)
 	{
 		m_texture = texture;
 	}
@@ -95,7 +96,7 @@ protected:
 	DirectX::BoundingOrientedBox m_boundingBox;
 
 	std::shared_ptr<Primitive> m_model;
-	std::shared_ptr<ShaderResourceView> m_texture;
+	std::shared_ptr<Resource> m_texture;
 	std::shared_ptr<ConstantBufferView> m_constantBuffer;
 
 };

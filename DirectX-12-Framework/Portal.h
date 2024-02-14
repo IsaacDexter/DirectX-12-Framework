@@ -1,33 +1,33 @@
 #pragma once
 #include "stdafx.h"
-#include "Resource.h"
-#include "SceneObject.h"
 #include <set>
+#include <string>
+#include "Camera.h"
 
-class Camera;
 class SceneObject;
-class Portal;
+struct RenderTexture;
 
-class Portal : public SceneObject
+class Portal
 {
 public:
-	Portal(ID3D12Device* device, const D3D12_CPU_DESCRIPTOR_HANDLE rtvCpuDescriptorHandle, std::shared_ptr<Primitive> model, std::shared_ptr<ShaderResourceView> texture, std::shared_ptr<ConstantBufferView> constantBuffer, std::string name);
+	Portal(std::shared_ptr<SceneObject> sceneObject, std::shared_ptr<RenderTexture> renderTexture);
 
 	void SetOtherPortal(std::shared_ptr<Portal> otherPortal)
 	{
 		m_otherPortal = otherPortal;
 	}
 	
-	void DrawTexture(ID3D12GraphicsCommandList* commandList, D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle, std::set<std::shared_ptr<SceneObject>>& objects);
+	void DrawTexture(ID3D12GraphicsCommandList* commandList, std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<Camera> camera);
 	
-	virtual void SetPosition(const DirectX::XMFLOAT3& position) override;
-	virtual void SetRotation(const DirectX::XMFLOAT3& rotation) override;
-	virtual void SetScale(const DirectX::XMFLOAT3& scale) override;
+	void SetPosition(const DirectX::XMFLOAT3& position);
+	void SetRotation(const DirectX::XMFLOAT3& rotation);
+	void SetScale(const DirectX::XMFLOAT3& scale);
 
 	const DirectX::XMMATRIX GetView();
 	const DirectX::XMMATRIX GetProj();
 
 protected:
+
 	/** 
 	* The portal's 'other side', whose camera will be used to render this portal.
 	*/
@@ -35,8 +35,11 @@ protected:
 	/** 
 	* The portal's camera which is used to determine the mvp matrix when drawing the portal
 	*/
-	std::unique_ptr<Camera> m_camera;
+	Camera m_camera;
+	std::shared_ptr<SceneObject> m_sceneObject;
+	std::shared_ptr<RenderTexture> m_renderTexture;
 
-	const D3D12_CPU_DESCRIPTOR_HANDLE m_rtvCpuDescriptorHandle;
+	DirectX::XMFLOAT3 m_forward;
+	
 };
 

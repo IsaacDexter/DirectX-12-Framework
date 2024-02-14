@@ -26,9 +26,9 @@ private:
 public:
     Camera(DirectX::XMFLOAT3 position, DirectX::XMFLOAT3 direction, DirectX::XMFLOAT3 up, float aspectRatio = 1280 / 720);
 
-    const DirectX::XMMATRIX& GetView();
-    const DirectX::XMMATRIX& GetProj();
-    const DirectX::XMMATRIX& GetWorld();
+    const DirectX::XMMATRIX GetView();
+    const DirectX::XMMATRIX GetProj();
+    const DirectX::XMMATRIX GetWorld();
 
     /** 
     * Call when resizing the window to resize the camera aspect ratio
@@ -39,17 +39,17 @@ public:
         m_aspectRatio = aspectRatio;
     }
 
-    void SetPosition(const DirectX::XMFLOAT3& position)
+    void SetPosition(const DirectX::XMFLOAT3 position)
     {
         m_position = position;
     }
     
-    void SetDirection(const DirectX::XMFLOAT3& direction)
+    void SetDirection(const DirectX::XMFLOAT3 direction)
     {
         m_direction = direction;
     }
 
-    void SetUp(const DirectX::XMFLOAT3& up)
+    void SetUp(const DirectX::XMFLOAT3 up)
     {
         m_up = up;
     }
@@ -70,7 +70,7 @@ public:
 
     }
 
-    void Update(const float& deltaTime);
+    void Update(const double deltaTime);
 private:
     void MoveForward(float distance);
     void MoveBackward(float distance)

@@ -12,6 +12,8 @@ class Camera;
 class Primitive;
 struct ConstantBufferView;
 struct ShaderResourceView;
+struct RenderTexture;
+struct Resource;
 class Portal;
 class SceneObject;
 
@@ -31,11 +33,13 @@ public:
 	*/
 	void Initialize(HWND hWnd, const UINT width, const UINT height);
 	void Update();
-	void Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject, std::shared_ptr<Camera> camera);
+	void Render(std::set<std::shared_ptr<SceneObject>>& objects, std::set<std::shared_ptr<Portal>>& portals, std::shared_ptr<SceneObject>& selectedObject, std::shared_ptr<Camera> camera);
 	void Destroy();
 	void Resize(const UINT width, const UINT height);
 
-	std::shared_ptr<ShaderResourceView> CreateTexture(const wchar_t* path, std::string name);
+	std::shared_ptr<Resource> CreateTexture(const wchar_t* path, std::string name);
+	std::shared_ptr<Resource> CreateTexture(std::string name);
+	std::shared_ptr<RenderTexture> CreateRenderTexture(std::string name);
 	std::shared_ptr<Primitive> CreateModel(const wchar_t* path, std::string name);
 	std::shared_ptr<ConstantBufferView> CreateConstantBuffer();
 
@@ -70,8 +74,6 @@ private:
 
 	std::unique_ptr<CbvSrvUavHeap> m_cbvSrvUavHeap;
 	std::unique_ptr<DescriptorHeap> m_rtvHeap;
-	std::shared_ptr<Portal> m_portal1;
-	std::shared_ptr<Portal> m_portal2;
 
 #pragma endregion
 
@@ -173,8 +175,7 @@ private:
 #pragma region Rendering
 
 	void PrepareCommandList(ID3D12GraphicsCommandList* commandList);
-	void PopulateCommandList(ID3D12GraphicsCommandList* commandList, ID3D12Resource* renderTarget, D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle, std::set<std::shared_ptr<SceneObject>>& objects, const DirectX::XMMATRIX view, const DirectX::XMMATRIX projection);
-
+	
 #pragma endregion
 };
 
