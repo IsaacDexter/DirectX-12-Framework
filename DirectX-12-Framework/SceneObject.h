@@ -86,10 +86,16 @@ public:
 	{
 		m_name = name;
 	}
+
+	const DirectX::XMFLOAT3 GetForward()
+	{
+		return m_forward;
+	}
 protected:
 	DirectX::XMFLOAT3 m_position;
 	DirectX::XMFLOAT3 m_rotation;
 	DirectX::XMFLOAT3 m_scale;
+	DirectX::XMFLOAT3 m_forward;
 
 	std::string m_name;
 

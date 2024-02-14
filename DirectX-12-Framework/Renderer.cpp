@@ -1049,7 +1049,7 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 			ImGui::Text("Position:");
 
 			float position[3] = { selectedObject->GetPosition().x, selectedObject->GetPosition().y, selectedObject->GetPosition().z };
-			if (ImGui::DragFloat3("##Position", position, 0.1f))
+			if (ImGui::DragFloat3("##Position", position, 0.05f))
 			{
 				selectedObject->SetPosition(XMFLOAT3(position[0], position[1], position[2]));
 			}
@@ -1059,7 +1059,7 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 			ImGui::Text("Rotation:");
 
 			float rotation[3] = { selectedObject->GetRotation().x, selectedObject->GetRotation().y, selectedObject->GetRotation().z };
-			if (ImGui::DragFloat3("##Rotation", rotation, XM_PIDIV4))
+			if (ImGui::DragFloat3("##Rotation", rotation, XM_PIDIV4 / 2, -XM_PI, XM_PI))
 			{
 				selectedObject->SetRotation(XMFLOAT3(rotation[0], rotation[1], rotation[2]));
 			}
@@ -1069,10 +1069,20 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 			ImGui::Text("Scale:");
 
 			float scale[3] = { selectedObject->GetScale().x, selectedObject->GetScale().y, selectedObject->GetScale().z };
-			if (ImGui::DragFloat3("##Scale", scale, 0.1f))
+			if (ImGui::DragFloat3("##Scale", scale, 0.05f, 0.05f, 100.0f))
 			{
 				selectedObject->SetScale(XMFLOAT3(scale[0], scale[1], scale[2]));
 			}
+		}
+		// Forward (READ ONLY)
+		{
+			ImGui::BeginDisabled();
+			ImGui::Text("Forward:");
+
+			float forward[3] = { selectedObject->GetForward().x, selectedObject->GetForward().y, selectedObject->GetForward().z };
+
+			ImGui::DragFloat3("##Forward", forward, 0.05f);
+			ImGui::EndDisabled();
 		}
 		// Texture
 		{

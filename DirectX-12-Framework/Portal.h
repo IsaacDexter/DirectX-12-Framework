@@ -27,10 +27,6 @@ public:
 
 	const DirectX::XMMATRIX GetView();
 	const DirectX::XMMATRIX GetProj();
-	const DirectX::XMFLOAT3 GetForward()
-	{
-		return m_forward;
-	}
 protected:
 
 	/** 
@@ -43,7 +39,6 @@ protected:
 	std::shared_ptr<Camera> m_camera;
 	std::shared_ptr<RenderTexture> m_renderTexture;
 
-	DirectX::XMFLOAT3 m_forward;
 	
 	std::set<std::shared_ptr<SceneObject>>& g_objects;
 	std::shared_ptr<Camera>& g_camera;

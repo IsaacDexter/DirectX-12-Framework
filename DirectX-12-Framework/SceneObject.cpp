@@ -16,6 +16,8 @@ SceneObject::SceneObject(std::shared_ptr<Primitive> model, std::shared_ptr<Resou
     , m_position(0.0f, 0.0f, 0.0f)
     , m_rotation(0.0f, 0.0f, 0.0f)
     , m_scale(1.0f, 1.0f, 1.0f)
+    , m_forward(0.0f, 0.0f, -1.0f)	// Used in determining camera direction
+
 {
     XMFLOAT4 orientation;
     XMStoreFloat4(&orientation, XMQuaternionRotationRollPitchYaw(m_rotation.x, m_rotation.y, m_rotation.z));
@@ -42,9 +44,14 @@ void SceneObject::Draw(ID3D12GraphicsCommandList* commandList)
 void SceneObject::SetRotation(const DirectX::XMFLOAT3& rotation)
 {
     m_rotation = rotation;
-    XMFLOAT4 orientation;
-    XMStoreFloat4(&orientation, XMQuaternionRotationRollPitchYaw(rotation.x, rotation.y, rotation.z));
-    m_boundingBox.Orientation = orientation;
+    XMVECTOR qRotationV = XMQuaternionRotationRollPitchYaw(rotation.x, rotation.y, rotation.z);
+    XMStoreFloat4(&m_boundingBox.Orientation, qRotationV);
+    // Get the portal's forward, i.e. where its facing 
+    auto forward = XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f);
+    // Rotate the portal's forward according to the rotation
+    auto newForward = XMVector3Rotate(forward, qRotationV);
+    newForward = XMVector3Normalize(newForward);
+    XMStoreFloat3(&m_forward, newForward);
 }
 
 const DirectX::XMMATRIX SceneObject::GetWorld() const
