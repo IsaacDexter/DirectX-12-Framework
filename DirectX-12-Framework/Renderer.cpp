@@ -71,7 +71,7 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shar
 		auto commandList = m_commandQueue->GetCommandList(m_pipelineState.Get());
 		commandList->SetName(L"Portal Command List");
 		PrepareCommandList(commandList.Get());
-		m_portal->Draw(commandList.Get(), m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), objects);
+		m_portal->DrawTexture(commandList.Get(), m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), objects);
 		m_commandQueue->ExecuteCommandList(commandList.Get());
 	}
 
@@ -92,7 +92,6 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shar
 
 		PrepareCommandList(commandList.Get());
 		PopulateCommandList(commandList.Get(), backBuffer.Get(), backBufferCpuDescriptorHandle, objects, view, projection);
-		//PopulateCommandList(commandList.Get(), renderTarget.first.Get(), rtvHandle, D3D12_RESOURCE_STATE_PRESENT, objects, m_portalCamera->GetView(), m_portalCamera->GetProj());
 		m_commandQueue->ExecuteCommandList(commandList.Get());
 	}
 	// Execute the command list
@@ -603,6 +602,7 @@ void Renderer::InitializeAssets(const UINT width, const UINT height)
 	auto srv = m_cbvSrvUavHeap->ReserveShaderResourceView("Portal");
 	auto cbv = CreateConstantBuffer();
 	m_portal = std::make_unique<Portal>(m_device.Get(), rtvCpuDescriptorHandle, model, srv, cbv, "Portal");
+	m_portal->SetScale(1.0f, 1.0f, 0.0f);
 
 	CreateSampler();
 
@@ -1260,6 +1260,8 @@ void Renderer::PopulateCommandList(ID3D12GraphicsCommandList* commandList, ID3D1
 		object->UpdateConstantBuffer(view, projection);
 		object->Draw(commandList);
 	}
+	m_portal->UpdateConstantBuffer(view, projection);
+	m_portal->Draw(commandList);
 
 	RenderGUI(commandList);
 

@@ -52,7 +52,7 @@ public:
 		return m_scale;
 	}
 
-	void SetScale(const DirectX::XMFLOAT3& scale)
+	virtual void SetScale(const DirectX::XMFLOAT3& scale)
 	{
 		m_scale = scale;
 		m_boundingBox.Extents.x = scale.x / 2.0f;
@@ -60,7 +60,7 @@ public:
 		m_boundingBox.Extents.z = scale.z / 2.0f;
 	}
 	
-	void SetScale(const float& x, const float& y, const float& z)
+	virtual void SetScale(const float& x, const float& y, const float& z)
 	{
 		m_scale.x = x;
 		m_scale.y = y;

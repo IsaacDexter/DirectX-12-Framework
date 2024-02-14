@@ -8,7 +8,12 @@ Portal::Portal(ID3D12Device* device, const D3D12_CPU_DESCRIPTOR_HANDLE rtvCpuDes
 	: m_rtvCpuDescriptorHandle(rtvCpuDescriptorHandle)
 	, SceneObject(model, texture, constantBuffer, name)
 {
-	m_camera = std::make_unique<Camera>(DirectX::XMFLOAT3(0.0f, 0.0f, 3.0f), DirectX::XMFLOAT3(0.0f, 0.0f, -1.0f), DirectX::XMFLOAT3(0.0f, 1.0f, 0.0f));
+	//auto forward = XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f);
+	//auto rotation = XMQuaternionRotationRollPitchYaw(m_rotation.x, m_rotation.y, m_rotation.z);
+	XMFLOAT3 direction;
+	//XMStoreFloat3(&direction, rotation * forward);
+	direction = XMFLOAT3(0.0f, 0.0f, -1.0f);
+	m_camera = std::make_unique<Camera>(m_position, direction, DirectX::XMFLOAT3(0.0f, 1.0f, 0.0f), m_scale.x / m_scale.y);
 	// Create the render texture
 	{
 		// Describe the render texture
@@ -55,7 +60,7 @@ Portal::Portal(ID3D12Device* device, const D3D12_CPU_DESCRIPTOR_HANDLE rtvCpuDes
 	}
 }
 
-void Portal::Draw(ID3D12GraphicsCommandList* commandList, D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle, std::set<std::shared_ptr<SceneObject>>& objects)
+void Portal::DrawTexture(ID3D12GraphicsCommandList* commandList, D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle, std::set<std::shared_ptr<SceneObject>>& objects)
 // Indicate that render texture will be used as the render target
 {
 	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_texture->resource.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
@@ -80,7 +85,7 @@ void Portal::Draw(ID3D12GraphicsCommandList* commandList, D3D12_CPU_DESCRIPTOR_H
 	// Draw object
 	for (auto object : objects)
 	{
-		if (object->GetTexture()->name == "Portal")
+		if (object->GetTexture() == m_texture)
 		{
 			continue;
 		}
@@ -93,4 +98,17 @@ void Portal::Draw(ID3D12GraphicsCommandList* commandList, D3D12_CPU_DESCRIPTOR_H
 	// Indicate that the back buffer will now be used to present.
 	barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_texture->resource.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	commandList->ResourceBarrier(1, &barrier);
+}
+
+void Portal::SetScale(const DirectX::XMFLOAT3& scale)
+{
+	SceneObject::SetScale(scale);
+	m_camera->SetAspectRatio(scale.x / scale.y);
+}
+
+void Portal::SetScale(const float& x, const float& y, const float& z)
+{
+	SceneObject::SetScale(x, y, z);
+	m_camera->SetAspectRatio(x / y);
+
 }
