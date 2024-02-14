@@ -1,4 +1,10 @@
 # DirectX-12-Framework
+
+Euclidean Manifold Topology Engine, or *EMTE* is a graphics framework for rendering portals and manifolds.
+
+https://github.com/IsaacDexter/DirectX-12-Framework/assets/90466022/cd3455ae-8aad-41eb-b7c9-e06c5a235227
+
+This project is currently under construction.
  
 # Attribution
 ## DirectX Tool Kit for DirectX 12
