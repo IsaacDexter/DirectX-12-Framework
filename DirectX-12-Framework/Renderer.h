@@ -1,24 +1,21 @@
 #pragma once
 #include "stdafx.h"
 #include <array>
-#include <vector>
-#include "DDSTextureLoader.h"
-#include "imgui.h"
-#include "imgui_impl_dx12.h"
-#include "imgui_impl_win32.h"
-#include <chrono>
 #include <set>
 
-#include "Camera.h"
-#include "Controls.h"
-#include "Primitive.h"
-#include "ShaderResourceView.h"
-#include "ConstantBufferView.h"
-#include "CbvSrvUavHeap.h"
-#include "RtvHeap.h"
-#include "SceneObject.h"
-#include "Portal.h"
 #include "CommandQueue.h"
+#include "DescriptorHeap.h"
+#include "CbvSrvUavHeap.h"
+
+
+class Camera;
+class Primitive;
+struct ConstantBufferView;
+struct ShaderResourceView;
+class Portal;
+class SceneObject;
+
+
 
 class Renderer
 {
@@ -34,7 +31,7 @@ public:
 	*/
 	void Initialize(HWND hWnd, const UINT width, const UINT height);
 	void Update();
-	void Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);
+	void Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject, std::shared_ptr<Camera> camera);
 	void Destroy();
 	void Resize(const UINT width, const UINT height);
 
@@ -176,7 +173,7 @@ private:
 #pragma region Rendering
 
 	void PrepareCommandList(ID3D12GraphicsCommandList* commandList);
-	void PopulateCommandList(ID3D12GraphicsCommandList* commandList, ID3D12Resource* renderTarget, D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle, std::set<std::shared_ptr<SceneObject>>& objects, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);
+	void PopulateCommandList(ID3D12GraphicsCommandList* commandList, ID3D12Resource* renderTarget, D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle, std::set<std::shared_ptr<SceneObject>>& objects, const DirectX::XMMATRIX view, const DirectX::XMMATRIX projection);
 
 #pragma endregion
 };

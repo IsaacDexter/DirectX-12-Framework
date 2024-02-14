@@ -117,6 +117,10 @@ void Portal::SetRotation(const DirectX::XMFLOAT3& rotation)
 {
 	SceneObject::SetRotation(rotation);
 	// TODO : Update camera direction according to rotation
+	// To get the direction the camera should be in:
+	// * find the direction from the player camera to this portal?
+	// * this will give the illusion of the portal being a seamless part of the world
+
 }
 
 void Portal::SetScale(const DirectX::XMFLOAT3& scale)

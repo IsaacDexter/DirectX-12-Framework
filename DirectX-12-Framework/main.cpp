@@ -1,6 +1,10 @@
 #include "stdafx.h"
 #include "Engine.h"
 #include "Window.h"
+#include "imgui.h"
+#include "imgui_impl_dx12.h"
+#include "imgui_impl_win32.h"
+#include "misc/cpp/imgui_stdlib.h"
 // For mouse input helpers
 #include <windowsx.h>
 

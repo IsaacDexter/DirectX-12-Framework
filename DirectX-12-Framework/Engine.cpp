@@ -1,5 +1,14 @@
 #include "Engine.h"
 #include <DirectXCollision.h>
+#include <string>
+#include <chrono>
+
+#include "Camera.h"
+#include "SceneObject.h"
+#include "Window.h"
+#include "Renderer.h"
+
+
 using namespace DirectX;
 
 Engine::Engine(HINSTANCE hInstance) :
@@ -77,9 +86,7 @@ void Engine::Update()
 void Engine::Render()
 {
     // Update constant buffer
-    XMMATRIX view = m_camera->GetView();
-    XMMATRIX proj = m_camera->GetProj();
-    m_renderer->Render(m_sceneObjects, m_selectedObject, view, proj);
+    m_renderer->Render(m_sceneObjects, m_selectedObject, m_camera);
 }
 
 void Engine::OnKeyDown(WPARAM wParam)

@@ -1,11 +1,11 @@
 #pragma once
 #include "stdafx.h"
-#include "SceneObject.h"
 #include <set>
-#include "Camera.h"
-#include <string>
-#include "Window.h"
 #include "Renderer.h"
+
+class SceneObject;
+class Camera; 
+class Window;
 
 class Engine
 {
@@ -20,7 +20,7 @@ public:
 	void OnResize();
 protected:
 	std::set<std::shared_ptr<SceneObject>> m_sceneObjects;
-	std::unique_ptr<Camera> m_camera;
+	std::shared_ptr<Camera> m_camera;
 
 	std::unique_ptr<Renderer> m_renderer;
 	std::unique_ptr<Window> m_window;

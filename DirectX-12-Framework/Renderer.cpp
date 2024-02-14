@@ -1,6 +1,16 @@
 #include "Renderer.h"
 #include "Window.h"
+#include "imgui.h"
+#include "imgui_impl_dx12.h"
+#include "imgui_impl_win32.h"
 #include "misc/cpp/imgui_stdlib.h"
+#include <chrono>
+#include "Camera.h"
+#include "Primitive.h"
+#include "ShaderResourceView.h"
+#include "ConstantBufferView.h"
+#include "RtvHeap.h"
+#include "SceneObject.h"
 #include "Portal.h"
 
 using namespace Microsoft::WRL;
@@ -35,7 +45,7 @@ void Renderer::Update()
 
 }
 
-void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection)
+void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject, std::shared_ptr<Camera> camera)
 {/*
 	- Populate command list
 		- Reset command list allocator
@@ -103,7 +113,7 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shar
 		commandList->SetName(L"Backbuffer Command List");
 
 		PrepareCommandList(commandList.Get());
-		PopulateCommandList(commandList.Get(), backBuffer.Get(), backBufferCpuDescriptorHandle, objects, view, projection);
+		PopulateCommandList(commandList.Get(), backBuffer.Get(), backBufferCpuDescriptorHandle, objects, camera->GetView(), camera->GetProj());
 		m_commandQueue->ExecuteCommandList(commandList.Get());
 	}
 	// Execute the command list
@@ -1255,7 +1265,7 @@ void Renderer::PrepareCommandList(ID3D12GraphicsCommandList* commandList)
 	commandList->RSSetScissorRects(1, &m_scissorRect);
 }
 
-void Renderer::PopulateCommandList(ID3D12GraphicsCommandList* commandList, ID3D12Resource* renderTarget, D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle, std::set<std::shared_ptr<SceneObject>>& objects, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection)
+void Renderer::PopulateCommandList(ID3D12GraphicsCommandList* commandList, ID3D12Resource* renderTarget, D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle, std::set<std::shared_ptr<SceneObject>>& objects, const DirectX::XMMATRIX view, const DirectX::XMMATRIX projection)
 {
 	// Indicate that the back buffer will be used as a render target.
 
