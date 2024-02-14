@@ -27,7 +27,10 @@ public:
 
 	const DirectX::XMMATRIX GetView();
 	const DirectX::XMMATRIX GetProj();
-
+	const DirectX::XMFLOAT3 GetForward()
+	{
+		return m_forward;
+	}
 protected:
 
 	/** 

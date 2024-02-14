@@ -21,7 +21,18 @@ void Portal::DrawTexture(ID3D12GraphicsCommandList* commandList)
 	m_renderTexture->BeginDraw(commandList);
 	if (m_otherPortal)
 	{
-		
+		auto otherForward = m_otherPortal->GetForward();
+		auto cameraPos = g_camera->GetPosition();
+		auto cameraToThisV = XMLoadFloat3(&m_position) - XMLoadFloat3(&cameraPos);
+		auto otherForwardV = XMLoadFloat3(&otherForward);
+
+		// Project the direction of the camera to this portal to the other portal's forward
+		cameraToThisV = cameraToThisV * XMVector3Dot(cameraToThisV, otherForwardV);
+
+		XMFLOAT3 cameraToThis;
+		XMStoreFloat3(&cameraToThis, cameraToThisV);
+
+		m_otherPortal->m_camera->SetDirection(cameraToThis);
 
 		for (auto object : g_objects)
 		{
@@ -56,7 +67,7 @@ void Portal::SetRotation(const DirectX::XMFLOAT3& rotation)
 	auto newForward = XMVector3Rotate(forward, qRotation);
 	newForward = XMVector3Normalize(newForward);
 	XMStoreFloat3(&m_forward, newForward);
-	m_camera->SetDirection(m_forward);
+	//m_camera->SetDirection(m_forward);
 
 }
 
