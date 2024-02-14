@@ -1,6 +1,10 @@
 #include "CbvSrvUavHeap.h"
+#include "ShaderResourceView.h"
+#include "ConstantBufferView.h"
+#include "Primitive.h"
 
-const std::shared_ptr<Texture> CbvSrvUavHeap::CreateTexture(ID3D12Device* device, ID3D12PipelineState* pipelineState, const wchar_t* path, std::string name)
+
+const std::shared_ptr<ShaderResourceView> CbvSrvUavHeap::CreateShaderResourceView(ID3D12Device* device, ID3D12PipelineState* pipelineState, const wchar_t* path, std::string name)
 {
     if (m_resetRequired)
     {
@@ -9,43 +13,52 @@ const std::shared_ptr<Texture> CbvSrvUavHeap::CreateTexture(ID3D12Device* device
         m_resetRequired = false;
     }
 
-    ResourceHandle resourceHandle = GetFreeHandle();
+    D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle;
+    D3D12_GPU_DESCRIPTOR_HANDLE gpuDescriptorHandle;
+    GetFreeHandle(cpuDescriptorHandle, gpuDescriptorHandle);
     UINT rootParameterIndex = RootParameterIndices::SRV;
 
-    auto texture = std::make_shared<Texture>(resourceHandle, rootParameterIndex, name);
+    auto srv = std::make_shared<ShaderResourceView>(cpuDescriptorHandle, gpuDescriptorHandle, rootParameterIndex);
+    srv->name = name;
+
     // Ensure the load went correctly - if it didnt, return nullptr!
-    if (!texture->Initialize(device, m_commandList.Get(), path))
+    if (!srv->Load(device, m_commandList.Get(), path))
     {
         return nullptr;
     }
-
-    m_textures.emplace(name, texture);
-
-
     m_load = true;
-    return texture;
+
+    m_textures.insert(srv);
+    return srv;
 }
 
-const std::shared_ptr<Texture> CbvSrvUavHeap::ReserveSRV(std::string name)
+const std::shared_ptr<ShaderResourceView> CbvSrvUavHeap::ReserveShaderResourceView(std::string name)
 {
-
-
-    ResourceHandle resourceHandle = GetFreeHandle();
+    D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle;
+    D3D12_GPU_DESCRIPTOR_HANDLE gpuDescriptorHandle;
+    GetFreeHandle(cpuDescriptorHandle, gpuDescriptorHandle);
     UINT rootParameterIndex = RootParameterIndices::SRV;
 
-    auto resource = std::make_shared<Texture>(resourceHandle, rootParameterIndex, name);
-    m_textures.emplace(name, resource);
-    return resource;
+    auto srv = std::make_shared<ShaderResourceView>(cpuDescriptorHandle, gpuDescriptorHandle, rootParameterIndex);
+    srv->name = name;
+
+    m_textures.insert(srv);
+    return srv;
 }
 
-const std::shared_ptr<ConstantBuffer> CbvSrvUavHeap::CreateCBV()
+const std::shared_ptr<ConstantBufferView> CbvSrvUavHeap::CreateConstantBufferView(ID3D12Device* device)
 {
-    ResourceHandle resourceHandle = GetFreeHandle();
+    D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle;
+    D3D12_GPU_DESCRIPTOR_HANDLE gpuDescriptorHandle;
+    GetFreeHandle(cpuDescriptorHandle, gpuDescriptorHandle);
     UINT rootParameterIndex = RootParameterIndices::CBV;
 
-    auto resource = std::make_shared<ConstantBuffer>(resourceHandle, rootParameterIndex, "");
-    m_constantBuffers.emplace(resource);
-    return resource;
+    auto cbv = std::make_shared<ConstantBufferView>(cpuDescriptorHandle, gpuDescriptorHandle, rootParameterIndex);
+    
+    cbv->Initialize(device);
+
+    m_constantBuffers.insert(cbv);
+    return cbv;
 }
 
 const std::shared_ptr<Primitive> CbvSrvUavHeap::CreateModel(ID3D12Device* device, ID3D12PipelineState* pipelineState, ID3D12RootSignature* rootSignature, const wchar_t* path, std::string name)
@@ -59,15 +72,16 @@ const std::shared_ptr<Primitive> CbvSrvUavHeap::CreateModel(ID3D12Device* device
 
     // Create the model
     auto model = std::make_shared<Primitive>(name);
+
     // If the model is loaded incorrectly, return nothing.
     if (!model->Initialize(device, m_commandList.Get(), pipelineState, rootSignature, path))
     {
         return nullptr;
     }
-    m_models.emplace(name, model);
     m_load = true;
-    return model;
 
+    m_models.insert(model);
+    return model;
 }
 
 CbvSrvUavHeap::CbvSrvUavHeap(ID3D12Device* device, const D3D12_DESCRIPTOR_HEAP_DESC desc, ID3D12PipelineState* pipelineState) :

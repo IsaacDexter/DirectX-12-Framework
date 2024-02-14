@@ -1,12 +1,12 @@
 #include "SceneObject.h"
 #include "Primitive.h"
-#include "Texture.h"
-#include "ConstantBuffer.h"
+#include "ShaderResourceView.h"
+#include "ConstantBufferView.h"
 
 using namespace DirectX;
 using namespace Microsoft::WRL;
 
-SceneObject::SceneObject(std::shared_ptr<Primitive> model, std::shared_ptr<Texture> texture, std::shared_ptr<ConstantBuffer> constantBuffer, std::string name) :
+SceneObject::SceneObject(std::shared_ptr<Primitive> model, std::shared_ptr<ShaderResourceView> texture, std::shared_ptr<ConstantBufferView> constantBuffer, std::string name) :
     m_model(model),
     m_texture(texture),
     m_constantBuffer(constantBuffer),
@@ -18,11 +18,6 @@ SceneObject::SceneObject(std::shared_ptr<Primitive> model, std::shared_ptr<Textu
     XMFLOAT4 orientation;
     XMStoreFloat4(&orientation, XMQuaternionRotationRollPitchYaw(m_rotation.x, m_rotation.y, m_rotation.z));
     m_boundingBox = BoundingOrientedBox(m_position, XMFLOAT3(m_scale.x / 2.0f, m_scale.y / 2.0f, m_scale.z / 2.0f), orientation);
-
-}
-
-void SceneObject::Initialize()
-{
 
 }
 
@@ -62,7 +57,7 @@ void SceneObject::SetRotation(const float& roll, const float& pitch, const float
     m_boundingBox.Orientation = orientation;
 }
 
-const DirectX::XMMATRIX& SceneObject::GetWorld() const
+const DirectX::XMMATRIX SceneObject::GetWorld() const
 {
     XMMATRIX translation = DirectX::XMMatrixTranslation(m_position.x, m_position.y, m_position.z);
     XMMATRIX rotation = DirectX::XMMatrixRotationRollPitchYaw(m_rotation.x, m_rotation.y, m_rotation.z);

@@ -1,5 +1,4 @@
 #include "DescriptorHeap.h"
-#include "DescriptorHeap.h"
 
 
 DescriptorHeap::DescriptorHeap(ID3D12Device* device, const D3D12_DESCRIPTOR_HEAP_DESC desc) :
@@ -17,7 +16,7 @@ void DescriptorHeap::CreateHeap(ID3D12Device* device, const D3D12_DESCRIPTOR_HEA
     m_descriptorSize = device->GetDescriptorHandleIncrementSize(desc.Type);
 }
 
-const ResourceHandle DescriptorHeap::GetFreeHandle()
+void DescriptorHeap::GetFreeHandle(D3D12_CPU_DESCRIPTOR_HANDLE& cpuDescriptorHandle, D3D12_GPU_DESCRIPTOR_HANDLE& gpuDescriptorHandle)
 {
 
     // If there are no existing freed handles to reuse
@@ -26,40 +25,38 @@ const ResourceHandle DescriptorHeap::GetFreeHandle()
         // Store the next 'final' offset, representing the next never allocated offset
         static UINT nextOffset = 0;
         // Create a new set of handles from the next offset 
-        CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(m_descriptorHeap->GetCPUDescriptorHandleForHeapStart(), nextOffset, m_descriptorSize);
-        CD3DX12_GPU_DESCRIPTOR_HANDLE gpuDescriptorHandle(m_descriptorHeap->GetGPUDescriptorHandleForHeapStart(), nextOffset, m_descriptorSize);
+        cpuDescriptorHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_descriptorHeap->GetCPUDescriptorHandleForHeapStart(), nextOffset, m_descriptorSize);
+        gpuDescriptorHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(m_descriptorHeap->GetGPUDescriptorHandleForHeapStart(), nextOffset, m_descriptorSize);
         nextOffset++;
-        return ResourceHandle(cpuDescriptorHandle, gpuDescriptorHandle);
     }
-
-    // Or, If there are existing freed handles to reuse
-    // Pop the first one and return it
-    ResourceHandle handle(m_freeHandles.front());
-    m_freeHandles.pop();
-    return handle;
-
+    else
+    {
+        // Or, If there are existing freed handles to reuse
+        // Pop the first one and return it
+        cpuDescriptorHandle = m_freeHandles.front().first;
+        gpuDescriptorHandle = m_freeHandles.front().second;
+        m_freeHandles.pop();
+    }
 }
 
-const D3D12_CPU_DESCRIPTOR_HANDLE DescriptorHeap::GetFreeCpuHandle()
+void DescriptorHeap::GetFreeHandle(D3D12_CPU_DESCRIPTOR_HANDLE& cpuDescriptorHandle)
 {
-
     // If there are no existing freed handles to reuse
     if (m_freeHandles.empty())
     {
         // Store the next 'final' offset, representing the next never allocated offset
         static UINT nextOffset = 0;
         // Create a new set of handles from the next offset 
-        CD3DX12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle(m_descriptorHeap->GetCPUDescriptorHandleForHeapStart(), nextOffset, m_descriptorSize);
+        cpuDescriptorHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_descriptorHeap->GetCPUDescriptorHandleForHeapStart(), nextOffset, m_descriptorSize);
         nextOffset++;
-        return cpuDescriptorHandle;
     }
-
-    // Or, If there are existing freed handles to reuse
-    // Pop the first one and return it
-    ResourceHandle handle(m_freeHandles.front());
-    m_freeHandles.pop();
-    return handle.cpuDescriptorHandle;
-
+    else
+    {
+        // Or, If there are existing freed handles to reuse
+        // Pop the first one and return it
+        cpuDescriptorHandle = m_freeHandles.front().first;
+        m_freeHandles.pop();
+    }
 }
 
 

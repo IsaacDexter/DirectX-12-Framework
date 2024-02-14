@@ -3,14 +3,14 @@
 #include <DirectXCollision.h>
 
 class Primitive;
-class Texture;
-class ConstantBuffer;
+struct ShaderResourceView;
+struct ConstantBufferView;
 
 class SceneObject
 {
 public:
-	SceneObject(std::shared_ptr<Primitive> model, std::shared_ptr<Texture> texture, std::shared_ptr<ConstantBuffer> constantBuffer, std::string name);
-	virtual void Initialize();
+	SceneObject(std::shared_ptr<Primitive> model, std::shared_ptr<ShaderResourceView> texture, std::shared_ptr<ConstantBufferView> constantBuffer, std::string name);
+	virtual void Initialize() {};
 	virtual void Update(const float deltaTime) {};
 	void UpdateConstantBuffer(const DirectX::XMMATRIX view, const DirectX::XMMATRIX projection);
 	void Draw(ID3D12GraphicsCommandList* commandList);
@@ -70,7 +70,7 @@ public:
 		m_boundingBox.Extents.z = z / 2.0f;
 	}
 
-	const DirectX::XMMATRIX& GetWorld() const;
+	const DirectX::XMMATRIX GetWorld() const;
 	
 
 	std::shared_ptr<Primitive> GetModel()
@@ -83,12 +83,12 @@ public:
 		m_model = model;
 	}
 
-	std::shared_ptr<Texture> GetTexture()
+	std::shared_ptr<ShaderResourceView> GetTexture()
 	{
 		return m_texture;
 	}
 
-	void SetTexture(std::shared_ptr<Texture> texture)
+	void SetTexture(std::shared_ptr<ShaderResourceView> texture)
 	{
 		m_texture = texture;
 	}
@@ -117,8 +117,8 @@ protected:
 	DirectX::BoundingOrientedBox m_boundingBox;
 
 	std::shared_ptr<Primitive> m_model;
-	std::shared_ptr<Texture> m_texture;
-	std::shared_ptr<ConstantBuffer> m_constantBuffer;
+	std::shared_ptr<ShaderResourceView> m_texture;
+	std::shared_ptr<ConstantBufferView> m_constantBuffer;
 
 };
 

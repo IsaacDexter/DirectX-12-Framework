@@ -171,7 +171,7 @@
     <ClInclude Include="Portal.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="Camera.h" />
-    <ClInclude Include="ConstantBuffer.h" />
+    <ClInclude Include="ConstantBufferView.h" />
     <ClInclude Include="Controls.h" />
     <ClInclude Include="Helpers.h" />
     <ClInclude Include="Primitive.h" />
@@ -180,7 +180,7 @@
     <ClInclude Include="RtvHeap.h" />
     <ClInclude Include="SceneObject.h" />
     <ClInclude Include="stdafx.h" />
-    <ClInclude Include="Texture.h" />
+    <ClInclude Include="ShaderResourceView.h" />
     <ClInclude Include="DescriptorHeap.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
@@ -198,7 +198,7 @@
     <ClCompile Include="Portal.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="Camera.cpp" />
-    <ClCompile Include="ConstantBuffer.cpp" />
+    <ClCompile Include="ConstantBufferView.cpp" />
     <ClCompile Include="Controls.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Primitive.cpp" />
@@ -206,7 +206,7 @@
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="RtvHeap.cpp" />
     <ClCompile Include="SceneObject.cpp" />
-    <ClCompile Include="Texture.cpp" />
+    <ClCompile Include="ShaderResourceView.cpp" />
     <ClCompile Include="DescriptorHeap.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>

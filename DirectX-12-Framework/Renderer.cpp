@@ -65,27 +65,8 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shar
 	if (m_cbvSrvUavHeap->Load(m_commandQueue->GetD3D12CommandQueue()))
 		m_commandQueue->Flush();
 
-	//{
-	//	auto portalCommandList = m_commandQueue->GetCommandList(m_pipelineState.Get());
-	//	portalCommandList->SetName(L"Portal Command List");
-	//	// Set necessary state.
-	//	portalCommandList->SetGraphicsRootSignature(m_rootSignature.Get());
-	//	// Set command list shader resource view and constant buffer view
-	//	ID3D12DescriptorHeap* ppHeaps[] = { m_cbvSrvUavHeap->GetDescriptorHeap(), m_samplerHeap.Get() };
-	//	portalCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
-	//	// Describe how samplers are laid out to GPU
-	//	portalCommandList->SetGraphicsRootDescriptorTable(DescriptorHeap::RootParameterIndices::Sampler, m_samplerHeap->GetGPUDescriptorHandleForHeapStart());
-
-	//	portalCommandList->RSSetViewports(1, &m_viewport);
-	//	portalCommandList->RSSetScissorRects(1, &m_scissorRect);
-
-	//	m_portal->Draw(portalCommandList.Get(), m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), objects);
-	//	m_commandQueue->ExecuteCommandList(portalCommandList.Get());
-	//}
-
-
-	// Record all rendering commands into the command list
+	// Record portal commands
 	{
 		auto commandList = m_commandQueue->GetCommandList(m_pipelineState.Get());
 		commandList->SetName(L"Portal Command List");
@@ -93,6 +74,8 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shar
 		m_portal->Draw(commandList.Get(), m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), objects);
 		m_commandQueue->ExecuteCommandList(commandList.Get());
 	}
+
+
 	{
 		// proceed to the next frame
 		// insert a signal into the queue, to stall the cpu with
@@ -101,13 +84,14 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::shar
 		m_commandQueue->WaitForFenceValue(frameFenceValue);
 	}
 	{
-		auto renderTarget = m_framebuffers[m_frameIndex];
-		auto rtvHandle = renderTarget.second.cpuDescriptorHandle;
+		auto backBuffer = m_framebuffers[m_frameIndex].first;
+		auto backBufferCpuDescriptorHandle = m_framebuffers[m_frameIndex].second;
+
 		auto commandList = m_commandQueue->GetCommandList(m_pipelineState.Get());
 		commandList->SetName(L"Backbuffer Command List");
 
 		PrepareCommandList(commandList.Get());
-		PopulateCommandList(commandList.Get(), renderTarget.first.Get(), rtvHandle, objects, view, projection);
+		PopulateCommandList(commandList.Get(), backBuffer.Get(), backBufferCpuDescriptorHandle, objects, view, projection);
 		//PopulateCommandList(commandList.Get(), renderTarget.first.Get(), rtvHandle, D3D12_RESOURCE_STATE_PRESENT, objects, m_portalCamera->GetView(), m_portalCamera->GetProj());
 		m_commandQueue->ExecuteCommandList(commandList.Get());
 	}
@@ -179,9 +163,9 @@ void Renderer::Resize(UINT width, UINT height)
 	m_portalCamera->SetAspectRatio(static_cast<float>(width) / static_cast<float>(height));
 }
 
-std::shared_ptr<Texture> Renderer::CreateTexture(const wchar_t* path, std::string name)
+std::shared_ptr<ShaderResourceView> Renderer::CreateTexture(const wchar_t* path, std::string name)
 {
-	return m_cbvSrvUavHeap->CreateTexture(m_device.Get(), m_pipelineState.Get(), path, name);
+	return m_cbvSrvUavHeap->CreateShaderResourceView(m_device.Get(), m_pipelineState.Get(), path, name);
 }
 
 std::shared_ptr<Primitive> Renderer::CreateModel(const wchar_t* path, std::string name)
@@ -189,11 +173,9 @@ std::shared_ptr<Primitive> Renderer::CreateModel(const wchar_t* path, std::strin
 	return m_cbvSrvUavHeap->CreateModel(m_device.Get(), m_pipelineState.Get(), m_rootSignature.Get(), path, name);
 }
 
-std::shared_ptr<ConstantBuffer> Renderer::CreateConstantBuffer()
+std::shared_ptr<ConstantBufferView> Renderer::CreateConstantBuffer()
 {
-	auto constantBuffer = m_cbvSrvUavHeap->CreateCBV();
-	constantBuffer->Initialize(m_device.Get());
-	return constantBuffer;
+	return m_cbvSrvUavHeap->CreateConstantBufferView(m_device.Get());
 }
 
 
@@ -523,11 +505,11 @@ void Renderer::CreateFramebuffers()
 	// For each framebuffer
 	for (UINT n = 0; n < m_framebuffers.size(); n++)
 	{
-		ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&m_framebuffers[n].first)));
 		// Get a free handle pair on the RTV heap, then create an RTV at it and store the RTV and its handle.
-		auto descriptorHandle = m_rtvHeap->GetFreeCpuHandle();
-		m_device->CreateRenderTargetView(m_framebuffers[n].first.Get(), nullptr, descriptorHandle);
-		m_framebuffers[n].second.cpuDescriptorHandle = descriptorHandle;
+		m_rtvHeap->GetFreeHandle(m_framebuffers[n].second);
+
+		ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&m_framebuffers[n].first)));
+		m_device->CreateRenderTargetView(m_framebuffers[n].first.Get(), nullptr, m_framebuffers[n].second);
 	}
 }
 
@@ -537,7 +519,7 @@ void Renderer::UpdateFramebuffers()
 	for (UINT n = 0; n < m_framebuffers.size(); n++)
 	{
 		ThrowIfFailed(m_swapChain->GetBuffer(n, IID_PPV_ARGS(&m_framebuffers[n].first)));
-		m_device->CreateRenderTargetView(m_framebuffers[n].first.Get(), nullptr, m_framebuffers[n].second.cpuDescriptorHandle);
+		m_device->CreateRenderTargetView(m_framebuffers[n].first.Get(), nullptr, m_framebuffers[n].second);
 	}
 }
 
@@ -615,27 +597,12 @@ void Renderer::InitializeAssets(const UINT width, const UINT height)
 		m_cbvSrvUavHeap = std::make_unique<CbvSrvUavHeap>(m_device.Get(), cbvSrvUavHeapDesc, m_pipelineState.Get());
 	}
 	
-	auto rtvHandle = m_rtvHeap->GetFreeCpuHandle();
-	auto srv = m_cbvSrvUavHeap->ReserveSRV("Portal");
-	m_portal = std::make_unique<Portal>(m_device.Get(), ResourceHandle(rtvHandle, CD3DX12_GPU_DESCRIPTOR_HANDLE(D3D12_DEFAULT)), srv, static_cast<float>(width) / static_cast<float>(height));
-	//auto srvHandle = m_cbvSrvUavHeap->GetFreeHandle();
-	//m_portal = std::make_unique<Portal>(m_device.Get(), rtvHandle, srvHandle);
-
-	//// Create command list
-	//// Create command list, and set it to closed state
-	//ThrowIfFailed(m_device->CreateCommandList(
-	//	0,  // 0 for single GPU, for multi-adapter
-	//	D3D12_COMMAND_LIST_TYPE_DIRECT, // Create a direct command list that the GPU can execute
-	//	m_commandAllocators[m_frameIndex].Get(),   // Command allocator associated with this list
-	//	m_pipelineState.Get(),  // Pipeline state
-	//	IID_PPV_ARGS(&m_commandList)
-	//), "Failed to create command list.\n");
-
-
-	//// Close the command list and execute it to begin the initial GPU setup.
-	//ThrowIfFailed(m_commandList->Close());
-	//ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
-	//m_ID3D12CommandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+	D3D12_CPU_DESCRIPTOR_HANDLE rtvCpuDescriptorHandle;
+	m_rtvHeap->GetFreeHandle(rtvCpuDescriptorHandle);
+	auto model = CreateModel(L"Cube", "Portal");
+	auto srv = m_cbvSrvUavHeap->ReserveShaderResourceView("Portal");
+	auto cbv = CreateConstantBuffer();
+	m_portal = std::make_unique<Portal>(m_device.Get(), rtvCpuDescriptorHandle, model, srv, cbv, "Portal");
 
 	CreateSampler();
 
@@ -922,12 +889,12 @@ void Renderer::InitializeGUI(HWND hWnd)
 
 	// Setup Platform/Renderer backends
 	ImGui_ImplWin32_Init(hWnd);
-	auto srv = m_cbvSrvUavHeap->ReserveSRV("GUI");
+	auto srv = m_cbvSrvUavHeap->ReserveShaderResourceView("GUI");
 	ImGui_ImplDX12_Init(m_device.Get(), m_frameCount, DXGI_FORMAT_R8G8B8A8_UNORM,
 		m_cbvSrvUavHeap->GetDescriptorHeap(),
 		// You'll need to designate a descriptor from your descriptor heap for Dear ImGui to use internally for its font texture's SRV
-		srv->GetResourceHandle().cpuDescriptorHandle,
-		srv->GetResourceHandle().gpuDescriptorHandle
+		srv->cpuDescriptorHandle,
+		srv->gpuDescriptorHandle
 	);
 #endif
 }
@@ -1055,15 +1022,15 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 			std::string name = "None";
 			if (selectedObject->GetTexture())
 			{
-				name = selectedObject->GetTexture()->GetName().c_str();
+				name = selectedObject->GetTexture()->name.c_str();
 			}
 			if (ImGui::BeginCombo("##Texture", name.c_str()))
 			{
 				for (auto texture : m_cbvSrvUavHeap->m_textures)
 				{
-					const bool is_selected = (selectedObject->GetTexture() == texture.second);
-					if (ImGui::Selectable(texture.first.c_str(), is_selected))
-						selectedObject->SetTexture(texture.second);
+					const bool is_selected = (selectedObject->GetTexture() == texture);
+					if (ImGui::Selectable(texture->name.c_str(), is_selected))
+						selectedObject->SetTexture(texture);
 
 					if (is_selected)
 						ImGui::SetItemDefaultFocus();
@@ -1100,7 +1067,7 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 						pathChanged &= !path.empty();
 						ImGui::InputTextWithHint("##TextureName", "Name...", &name);
 						nameValid = !name.empty();
-						nameValid &= !m_cbvSrvUavHeap->m_textures.contains(name);
+						//nameValid &= !m_cbvSrvUavHeap->m_textures.contains(name);
 
 						ImGui::BeginDisabled(!(pathChanged && nameValid));
 						if (ImGui::Button("Load"))
@@ -1143,9 +1110,9 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 			{
 				for (auto model : m_cbvSrvUavHeap->m_models)
 				{
-					const bool is_selected = (selectedObject->GetModel() == model.second);
-					if (ImGui::Selectable(model.first.c_str(), is_selected))
-						selectedObject->SetModel(model.second);
+					const bool is_selected = (selectedObject->GetModel() == model);
+					if (ImGui::Selectable(model->GetName().c_str(), is_selected))
+						selectedObject->SetModel(model);
 
 					// Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
 					if (is_selected)
@@ -1185,7 +1152,7 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 						ImGui::InputTextWithHint("##ModelName", "Name...", &name);
 						// Ensure the name isn't naught and that it doesn't already exist
 						nameValid = !name.empty();
-						nameValid &= !m_cbvSrvUavHeap->m_models.contains(name);
+						//nameValid &= !m_cbvSrvUavHeap->m_models.contains(name);
 
 						ImGui::BeginDisabled(!(pathChanged && nameValid));
 						if (ImGui::Button("Load"))
@@ -1276,7 +1243,7 @@ void Renderer::PopulateCommandList(ID3D12GraphicsCommandList* commandList, ID3D1
 
 	// Record commands.
 	// Clear the RTVs and DSVs
-	const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
+	const float clearColor[] = { 0.4f, 0.6f, 0.9f, 1.0f };
 	commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 	commandList->ClearDepthStencilView(
 		dsvHandle,  // Aforementioned handle to DSV heap

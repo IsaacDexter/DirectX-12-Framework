@@ -12,8 +12,8 @@
 #include "Camera.h"
 #include "Controls.h"
 #include "Primitive.h"
-#include "Texture.h"
-#include "ConstantBuffer.h"
+#include "ShaderResourceView.h"
+#include "ConstantBufferView.h"
 #include "CbvSrvUavHeap.h"
 #include "RtvHeap.h"
 #include "SceneObject.h"
@@ -38,9 +38,9 @@ public:
 	void Destroy();
 	void Resize(const UINT width, const UINT height);
 
-	std::shared_ptr<Texture> CreateTexture(const wchar_t* path, std::string name);
+	std::shared_ptr<ShaderResourceView> CreateTexture(const wchar_t* path, std::string name);
 	std::shared_ptr<Primitive> CreateModel(const wchar_t* path, std::string name);
-	std::shared_ptr<ConstantBuffer> CreateConstantBuffer();
+	std::shared_ptr<ConstantBufferView> CreateConstantBuffer();
 
 private:
 	static const UINT m_frameCount = 2;
@@ -52,7 +52,7 @@ private:
 	Microsoft::WRL::ComPtr<IDXGISwapChain3> m_swapChain;
 	Microsoft::WRL::ComPtr<ID3D12Device4> m_device;
 	// I think this should be called m_frameBuffers, but wikipedia says its just one word. Go figure.
-	std::array<std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, ResourceHandle>, Renderer::m_frameCount> m_framebuffers;
+	std::array<std::pair<Microsoft::WRL::ComPtr<ID3D12Resource>, D3D12_CPU_DESCRIPTOR_HANDLE>, Renderer::m_frameCount> m_framebuffers;
 	UINT m_frameIndex;
 
 	
@@ -73,8 +73,6 @@ private:
 
 	std::unique_ptr<CbvSrvUavHeap> m_cbvSrvUavHeap;
 	std::unique_ptr<DescriptorHeap> m_rtvHeap;
-	std::shared_ptr<Texture> m_renderTextureSrv;
-	ResourceHandle m_renderTextureRtvDescriptorHandle;
 	std::unique_ptr<Portal> m_portal;
 	std::unique_ptr<Camera> m_portalCamera;
 

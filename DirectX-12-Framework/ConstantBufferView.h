@@ -2,10 +2,14 @@
 #include "stdafx.h"
 #include "Resource.h"
 
-class ConstantBuffer : public Resource
+struct ConstantBufferView : public Resource
 {
 public:
-	ConstantBuffer(const ResourceHandle resourceHandle, const UINT& cbvRootParameterIndex, std::string name);
+	ConstantBufferView(const D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle, const D3D12_GPU_DESCRIPTOR_HANDLE gpuDescriptorHandle, const UINT rootParameterIndex)
+		: Resource(cpuDescriptorHandle, gpuDescriptorHandle, rootParameterIndex)
+		, cbvDataBegin(nullptr)
+		, cbvData()
+	{}
 	void Initialize(ID3D12Device* device);
 	// Update Model View Projection (MVP) Matrix according to camera position
 	void Update(const DirectX::XMMATRIX& model, const DirectX::XMMATRIX& view, const DirectX::XMMATRIX& projection);
@@ -21,7 +25,7 @@ protected:
 	// Ensure constant buffer is 256-byte aligned
 	static_assert((sizeof(SceneConstantBuffer) % 256) == 0, "Constant Buffer size must be 256-byte aligned");
 
-	SceneConstantBuffer m_constantBufferData;
-	UINT8* m_pCbvDataBegin;
+	SceneConstantBuffer cbvData;
+	UINT8* cbvDataBegin;
 };
 

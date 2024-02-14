@@ -13,12 +13,13 @@ Engine::Engine(HINSTANCE hInstance) :
 
 void Engine::Initialize()
 {
-    m_camera = std::make_unique<Camera>(XMFLOAT3(0.0f, 0.0f, 3.0f), XMFLOAT3(0.0f, 0.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), m_window->GetAspectRatio());
+    m_camera = std::make_unique<Camera>(XMFLOAT3(0.0f, 1.0f, 4.0f), XMFLOAT3(0.0f, -0.25f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f), m_window->GetAspectRatio());
     //m_sceneObjects.emplace(std::make_shared<SceneObject>(m_renderer->CreateModel(L"Cube", "Cube"), nullptr, m_renderer->CreateConstantBuffer(), "Cube"));
     //m_sceneObjects.emplace(std::make_shared<SceneObject>(m_renderer->CreateModel(L"Pyramid", "Pyramid"), nullptr, m_renderer->CreateConstantBuffer(), "Pyramid"));
-    auto cube = std::make_shared<SceneObject>(m_renderer->CreateModel(L"Cube", "Cube"), m_renderer->CreateTexture(L"Assets/Tiles.dds", "Tiles"), m_renderer->CreateConstantBuffer(), "Cube");
-    m_sceneObjects.emplace(cube);
-    cube->SetPosition(1.0f, 0.0f, 0.0f);
+    auto skybox = std::make_shared<SceneObject>(m_renderer->CreateModel(L"Cube", "Cube"), m_renderer->CreateTexture(L"Assets/Tiles.dds", "Tiles"), m_renderer->CreateConstantBuffer(), "Skybox");
+    m_sceneObjects.emplace(skybox);
+    skybox->SetPosition(0.0f, 4.5f, 0.0f);
+    skybox->SetScale(-10.0f, -10.0f, -10.0f);
     m_sceneObjects.emplace(std::make_shared<SceneObject>(m_renderer->CreateModel(L"Pyramid", "Pyramid"), m_renderer->CreateTexture(L"Assets/Sand.dds", "Sand"), m_renderer->CreateConstantBuffer(), "Pyramid"));
     
 }
@@ -98,6 +99,7 @@ void Engine::OnKeyDown(WPARAM wParam)
     case VK_RETURN:
         if (alt)
         {
+            [[fallthrough]];
     case VK_F11:
         m_window->SetFullscreen();
         }
@@ -166,28 +168,28 @@ XMFLOAT3 Engine::CreateRay(int x, int y)
     XMMATRIX view = m_camera->GetView();
     XMMATRIX world = m_camera->GetWorld();
 
-    UINT width = m_window->GetClientWidth();
-    UINT height = m_window->GetClientHeight();
+    float width = static_cast<float>(m_window->GetClientWidth());
+    float height = static_cast<float>(m_window->GetClientHeight());
 
-    XMVECTOR origin = XMVector3Unproject(XMVectorSet(x, y, 0, 0),
-        0,
-        0,
+    XMVECTOR origin = XMVector3Unproject(XMVectorSet(static_cast<float>(x), static_cast<float>(y), 0.0f, 0.0f),
+        0.0f,
+        0.0f,
         width,
         height,
-        0,
-        1,
+        0.0f,
+        1.0f,
         proj,
         view,
         world
     );
 
-    XMVECTOR dest = XMVector3Unproject(XMVectorSet(x, y, 1, 0),
-        0,
-        0,
+    XMVECTOR dest = XMVector3Unproject(XMVectorSet(static_cast<float>(x), static_cast<float>(y), 1.0f, 0.0f),
+        0.0f,
+        0.0f,
         width,
         height,
-        0,
-        1,
+        0.0f,
+        1.0f,
         proj,
         view,
         world
