@@ -7,7 +7,7 @@ using namespace DirectX;
 
 Portal::Portal(std::shared_ptr<Primitive> model, std::shared_ptr<RenderTexture> renderTexture, std::shared_ptr<ConstantBufferView> constantBuffer, std::string name, std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<Camera>& camera)
 	: SceneObject(model, renderTexture, constantBuffer, name)	// Store an existing scene object as opposed to creating it. This allows scene objects to be drawn independently of the portal's render texture etc.
-	, m_forward(0.0f, 0.0f, 1.0f)	// Used in determining camera direction
+	, m_forward(0.0f, 0.0f, -1.0f)	// Used in determining camera direction
 	, m_renderTexture(renderTexture)
 	, g_objects(objects)
 	, g_camera(camera)
@@ -21,6 +21,8 @@ void Portal::DrawTexture(ID3D12GraphicsCommandList* commandList)
 	m_renderTexture->BeginDraw(commandList);
 	if (m_otherPortal)
 	{
+		
+
 		for (auto object : g_objects)
 		{
 			if (object->GetName() != m_name)
@@ -48,7 +50,7 @@ void Portal::SetRotation(const DirectX::XMFLOAT3& rotation)
 	// * this will give the illusion of the portal being a seamless part of the world
 
 	// Get the portal's forward, i.e. where its facing 
-	auto forward = XMLoadFloat3(&m_forward);
+	auto forward = XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f);
 	auto qRotation = XMQuaternionRotationRollPitchYawFromVector(XMLoadFloat3(&rotation));
 	// Rotate the portal's forward according to the rotation
 	auto newForward = XMVector3Rotate(forward, qRotation);

@@ -1059,7 +1059,7 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 			ImGui::Text("Rotation:");
 
 			float rotation[3] = { selectedObject->GetRotation().x, selectedObject->GetRotation().y, selectedObject->GetRotation().z };
-			if (ImGui::DragFloat3("##Rotation", rotation, 0.1f))
+			if (ImGui::DragFloat3("##Rotation", rotation, XM_PIDIV4))
 			{
 				selectedObject->SetRotation(XMFLOAT3(rotation[0], rotation[1], rotation[2]));
 			}
