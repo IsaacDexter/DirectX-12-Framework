@@ -228,7 +228,9 @@ std::shared_ptr<RenderTexture> Renderer::CreateRenderTexture(std::string name)
 	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle;
 	// TODO : Acquire a new DSV handle
 	dsvHandle = m_dsvHeap->GetCPUDescriptorHandleForHeapStart();
-	return std::make_shared<RenderTexture>(texture->cpuDescriptorHandle, texture->gpuDescriptorHandle, texture->rootParameterIndex, rtvHandle, dsvHandle);
+	auto renderTexture = std::make_shared<RenderTexture>(texture->cpuDescriptorHandle, texture->gpuDescriptorHandle, texture->rootParameterIndex, rtvHandle, dsvHandle);
+	renderTexture->Initialize(m_device.Get());
+	return renderTexture;
 }
 
 std::shared_ptr<Primitive> Renderer::CreateModel(const wchar_t* path, std::string name)
@@ -1001,11 +1003,11 @@ void Renderer::ShowSceneGraph(std::set<std::shared_ptr<SceneObject>>& objects, s
 			std::shared_ptr<SceneObject> object;
 			if (selectedObject)
 			{
-				//object = std::make_shared<SceneObject>(selectedObject->GetModel(), selectedObject->GetTexture(), CreateConstantBuffer(), "new " + selectedObject->GetName());
+				object = std::make_shared<SceneObject>(selectedObject->GetModel(), selectedObject->GetTexture(), CreateConstantBuffer(), "new " + selectedObject->GetName());
 			}
 			else
 			{
-				//object = std::make_shared<SceneObject>(nullptr, nullptr, CreateConstantBuffer(), "new ");
+				object = std::make_shared<SceneObject>(nullptr, nullptr, CreateConstantBuffer(), "new ");
 			}
 			objects.emplace(object);
 			selectedObject = object;

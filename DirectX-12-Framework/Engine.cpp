@@ -44,30 +44,30 @@ void Engine::Initialize()
     {
         m_sceneObjects.insert(std::make_shared<SceneObject>(pyramid, sand, m_renderer->CreateConstantBuffer(), "Pyramid"));
     }
-    //// Create the portals
-    //{
-    //    auto renderTexture1 = m_renderer->CreateRenderTexture("Portal1");
-    //    auto portalObject1 = std::make_shared<SceneObject>(cube, tiles, m_renderer->CreateConstantBuffer(), "Portal1");
-    //    m_sceneObjects.emplace(portalObject1);
+    // Create the portals
+    {
+        auto renderTexture1 = m_renderer->CreateRenderTexture("Portal1");
+        auto portalObject1 = std::make_shared<SceneObject>(cube, tiles, m_renderer->CreateConstantBuffer(), "Portal1");
+        m_sceneObjects.emplace(portalObject1);
 
-    //    auto portal1 = std::make_shared<Portal>(portalObject1, renderTexture1);
-    //    m_portals.insert(portal1);
-    //    portal1->SetScale(XMFLOAT3(1.0f, 1.0f, 0.0f));
-    //    portal1->SetPosition(XMFLOAT3(1.0f, 0.0f, 0.0f));
+        auto portal1 = std::make_shared<Portal>(portalObject1, renderTexture1);
+        m_portals.insert(portal1);
+        portal1->SetScale(XMFLOAT3(1.0f, 1.0f, 0.0f));
+        portal1->SetPosition(XMFLOAT3(1.0f, 0.0f, 0.0f));
 
 
-    //    auto renderTexture2 = m_renderer->CreateRenderTexture("Portal2");
-    //    auto portalObject2 = std::make_shared<SceneObject>(cube, tiles, m_renderer->CreateConstantBuffer(), "Portal2");
-    //    m_sceneObjects.emplace(portalObject2);
+        auto renderTexture2 = m_renderer->CreateRenderTexture("Portal2");
+        auto portalObject2 = std::make_shared<SceneObject>(cube, tiles, m_renderer->CreateConstantBuffer(), "Portal2");
+        m_sceneObjects.emplace(portalObject2);
 
-    //    auto portal2 = std::make_shared<Portal>(portalObject2, renderTexture2);
-    //    m_portals.insert(portal2);
-    //    portal2->SetScale(XMFLOAT3(1.0f, 1.0f, 0.0f));
-    //    portal2->SetPosition(XMFLOAT3(-1.0f, 0.0f, 0.0f));
+        auto portal2 = std::make_shared<Portal>(portalObject2, renderTexture2);
+        m_portals.insert(portal2);
+        portal2->SetScale(XMFLOAT3(1.0f, 1.0f, 0.0f));
+        portal2->SetPosition(XMFLOAT3(-1.0f, 0.0f, 0.0f));
 
-    //    portal1->SetOtherPortal(portal2);
-    //    portal2->SetOtherPortal(portal1);
-    //}
+        portal1->SetOtherPortal(portal2);
+        portal2->SetOtherPortal(portal1);
+    }
 }
 
 void Engine::Update()

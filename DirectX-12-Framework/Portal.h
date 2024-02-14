@@ -2,10 +2,10 @@
 #include "stdafx.h"
 #include <set>
 #include <string>
-#include "Camera.h"
 
 class SceneObject;
 struct RenderTexture;
+class Camera;
 
 class Portal
 {
@@ -35,7 +35,7 @@ protected:
 	/** 
 	* The portal's camera which is used to determine the mvp matrix when drawing the portal
 	*/
-	Camera m_camera;
+	std::shared_ptr<Camera> m_camera;
 	std::shared_ptr<SceneObject> m_sceneObject;
 	std::shared_ptr<RenderTexture> m_renderTexture;
 

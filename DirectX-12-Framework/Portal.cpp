@@ -1,17 +1,17 @@
 #include "Portal.h"
 
+#include "Camera.h";
 #include "SceneObject.h"
 #include "RenderTexture.h"
 
 using namespace DirectX;
 
 Portal::Portal(std::shared_ptr<SceneObject> sceneObject, std::shared_ptr<RenderTexture> renderTexture)
-	: m_camera(m_sceneObject->GetPosition(), m_forward, XMFLOAT3(0.0f, 1.0f, 0.0f), m_sceneObject->GetScale().x / m_sceneObject->GetScale().y)	// Create the camera from the scene objects position
-	, m_forward(0.0f, 0.0f, 1.0f)	// Used in determining camera direction
+	: m_forward(0.0f, 0.0f, 1.0f)	// Used in determining camera direction
+	, m_sceneObject(sceneObject)	// Store an existing scene object as opposed to creating it. This allows scene objects to be drawn independently of the portal's render texture etc.
 	, m_renderTexture(renderTexture)
 {
-	m_sceneObject = sceneObject;	// Store an existing scene object as opposed to creating it. This allows scene objects to be drawn independently of the portal's render texture etc.
-
+	m_camera = std::make_shared<Camera>(sceneObject->GetPosition(), m_forward, XMFLOAT3(0.0f, 1.0f, 0.0f), sceneObject->GetScale().x / sceneObject->GetScale().y);	// Create the camera from the scene objects position
 	SetRotation(m_sceneObject->GetRotation());	// Update the forward vector according to orientation
 	sceneObject->SetTexture(m_renderTexture);	// Replace the scene objects texture with this' render texture
 }
@@ -23,7 +23,7 @@ void Portal::DrawTexture(ID3D12GraphicsCommandList* commandList, std::set<std::s
 	{
 		if (object != m_sceneObject)
 		{
-			object->UpdateConstantBuffer(m_camera.GetView(), m_camera.GetProj());
+			object->UpdateConstantBuffer(m_camera->GetView(), m_camera->GetProj());
 			object->Draw(commandList);
 		}
 	}
@@ -33,7 +33,7 @@ void Portal::DrawTexture(ID3D12GraphicsCommandList* commandList, std::set<std::s
 void Portal::SetPosition(const DirectX::XMFLOAT3& position)
 {
 	m_sceneObject->SetPosition(position);
-	m_camera.SetPosition(position);
+	m_camera->SetPosition(position);
 }
 
 void Portal::SetRotation(const DirectX::XMFLOAT3& rotation)
@@ -51,23 +51,23 @@ void Portal::SetRotation(const DirectX::XMFLOAT3& rotation)
 	auto newForward = XMVector3Rotate(forward, qRotation);
 	newForward = XMVector3Normalize(newForward);
 	XMStoreFloat3(&m_forward, newForward);
-	m_camera.SetDirection(m_forward);
+	m_camera->SetDirection(m_forward);
 
 }
 
 void Portal::SetScale(const DirectX::XMFLOAT3& scale)
 {
 	m_sceneObject->SetScale(scale);
-	m_camera.SetAspectRatio(scale.x / scale.y);
+	m_camera->SetAspectRatio(scale.x / scale.y);
 }
 
 
 const DirectX::XMMATRIX Portal::GetView()
 {
-	return m_camera.GetView();
+	return m_camera->GetView();
 }
 
 const DirectX::XMMATRIX Portal::GetProj()
 {
-	return m_camera.GetProj();
+	return m_camera->GetProj();
 }
