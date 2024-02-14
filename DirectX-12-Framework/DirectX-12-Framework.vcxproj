@@ -183,6 +183,7 @@
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="ShaderResourceView.h" />
     <ClInclude Include="DescriptorHeap.h" />
+    <ClInclude Include="TestScene.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>
@@ -210,6 +211,7 @@
     <ClCompile Include="SceneObject.cpp" />
     <ClCompile Include="ShaderResourceView.cpp" />
     <ClCompile Include="DescriptorHeap.cpp" />
+    <ClCompile Include="TestScene.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>

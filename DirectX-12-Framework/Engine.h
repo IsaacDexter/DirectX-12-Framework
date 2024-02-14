@@ -11,28 +11,28 @@ class Portal;
 class Engine
 {
 public:
-	Engine(HINSTANCE hInstance);
-	void Initialize();
-	void Update();
+	Engine(std::shared_ptr<Renderer> renderer, std::shared_ptr<Window> window);
+	virtual void Initialize() = 0;
+	virtual void Update();
 	void Render();
 	void OnKeyDown(WPARAM wParam);
 	void OnKeyUp(WPARAM wParam);
 	void OnMouseMove(int x, int y, WPARAM wParam);
 	void OnResize();
 protected:
+	std::shared_ptr<Renderer> m_renderer;
+	std::shared_ptr<Window> m_window;
+
+	/* TODO :
+	Seperate engine and scene properly
+	Store textures etc. per scene?
+	Add destructor that clears up the in use textures etc.
+	*/
+	
+
 	std::set<std::shared_ptr<SceneObject>> m_sceneObjects;
 	std::set<std::shared_ptr<Portal>> m_portals;
 	std::shared_ptr<Camera> m_camera;
-
-	std::unique_ptr<Renderer> m_renderer;
-	std::unique_ptr<Window> m_window;
-
-	const Microsoft::WRL::ComPtr<ID3D12Device> m_device;
-
-	UINT m_numObjects = 20;
-
-	void CreateObject();
-
 	std::shared_ptr<SceneObject> m_selectedObject = nullptr;
 
 	DirectX::XMFLOAT3 CreateRay(int x, int y);
