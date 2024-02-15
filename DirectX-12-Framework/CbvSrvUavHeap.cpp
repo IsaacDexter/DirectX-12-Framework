@@ -28,7 +28,6 @@ const std::shared_ptr<ShaderResourceView> CbvSrvUavHeap::CreateShaderResourceVie
     }
     m_load = true;
 
-    m_textures.insert(srv);
     return srv;
 }
 
@@ -42,7 +41,6 @@ const std::shared_ptr<ShaderResourceView> CbvSrvUavHeap::ReserveShaderResourceVi
     auto srv = std::make_shared<ShaderResourceView>(cpuDescriptorHandle, gpuDescriptorHandle, rootParameterIndex);
     srv->name = name;
 
-    m_textures.insert(srv);
     return srv;
 }
 
@@ -57,7 +55,6 @@ const std::shared_ptr<ConstantBufferView> CbvSrvUavHeap::CreateConstantBufferVie
     
     cbv->Initialize(device);
 
-    m_constantBuffers.insert(cbv);
     return cbv;
 }
 
@@ -80,7 +77,6 @@ const std::shared_ptr<Primitive> CbvSrvUavHeap::CreateModel(ID3D12Device* device
     }
     m_load = true;
 
-    m_models.insert(model);
     return model;
 }
 

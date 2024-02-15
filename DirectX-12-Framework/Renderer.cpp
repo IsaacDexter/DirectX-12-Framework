@@ -15,15 +15,17 @@
 #include "ShaderResourceView.h"
 #include "ConstantBufferView.h"
 #include "Primitive.h"
+#include "Engine.h"
 
 using namespace Microsoft::WRL;
 using namespace DirectX;
 
 #define _GUI
 
-Renderer::Renderer() 
+Renderer::Renderer(std::shared_ptr<Engine>& scene)
 	: m_framebuffers{}
 	, m_frameIndex()
+	, g_scene(scene)
 {
 
 }
@@ -49,7 +51,7 @@ void Renderer::Update()
 
 }
 
-void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::set<std::shared_ptr<Portal>>& portals, std::shared_ptr<SceneObject>& selectedObject, std::shared_ptr<Camera> camera)
+void Renderer::Render()
 {/*
 	- Populate command list
 		- Reset command list allocator
@@ -70,7 +72,7 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::set<
 		- Wait on fence
 	*/
 
-	UpdateGUI(objects, selectedObject);
+	UpdateGUI(g_scene->m_sceneObjects, g_scene->m_selectedObject);
 
 	// Put the command list into an array (of one) for execution on the queue
 	// TODO : Change this to take advantage of CommandQueue
@@ -79,7 +81,7 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::set<
 
 
 	// Record portal commands
-	for (auto portal : portals)
+	for (auto portal : g_scene->m_portals)
 	{
 		{
 			auto commandList = m_commandQueue->GetCommandList(m_pipelineState.Get());
@@ -130,9 +132,9 @@ void Renderer::Render(std::set<std::shared_ptr<SceneObject>>& objects, std::set<
 			// Update Model View Projection (MVP) Matrix according to camera position
 
 			// Draw objects, including the portals scene objects.
-			for (auto object : objects)
+			for (auto object : g_scene->m_sceneObjects)
 			{
-				object->UpdateConstantBuffer(camera->GetView(), camera->GetProj());
+				object->UpdateConstantBuffer(g_scene->m_camera->GetView(), g_scene->m_camera->GetProj());
 				object->Draw(commandList.Get());
 			}
 
@@ -241,6 +243,18 @@ std::shared_ptr<Primitive> Renderer::CreateModel(const wchar_t* path, std::strin
 std::shared_ptr<ConstantBufferView> Renderer::CreateConstantBuffer()
 {
 	return m_cbvSrvUavHeap->CreateConstantBufferView(m_device.Get());
+}
+
+void Renderer::UnloadResource(D3D12_CPU_DESCRIPTOR_HANDLE cbvSrvUavCpuDescriptorHandle, D3D12_GPU_DESCRIPTOR_HANDLE cbvSrvUavGpuDescriptorHandle)
+{
+	m_cbvSrvUavHeap->Free(cbvSrvUavCpuDescriptorHandle, cbvSrvUavGpuDescriptorHandle);
+}
+
+void Renderer::UnloadResource(D3D12_CPU_DESCRIPTOR_HANDLE cbvSrvUavCpuDescriptorHandle, D3D12_GPU_DESCRIPTOR_HANDLE cbvSrvUavGpuDescriptorHandle, D3D12_CPU_DESCRIPTOR_HANDLE rtvCpuDescriptorHandle)
+{
+	m_cbvSrvUavHeap->Free(cbvSrvUavCpuDescriptorHandle, cbvSrvUavGpuDescriptorHandle);
+	m_rtvHeap->Free(rtvCpuDescriptorHandle);
+	// TODO : Free DSV handle
 }
 
 
@@ -998,19 +1012,41 @@ void Renderer::ShowSceneGraph(std::set<std::shared_ptr<SceneObject>>& objects, s
 			if (is_selected)
 				ImGui::SetItemDefaultFocus();
 		}
-		if (ImGui::Button("New"))
+		if (ImGui::Button("New Scene Object"))
 		{
 			std::shared_ptr<SceneObject> object;
-			if (selectedObject)
+			auto cbv = CreateConstantBuffer();
+			g_scene->m_constantBuffers.push_back(cbv);
+
+			// TODO : Reimplement duplicate a scene object
+			//if (selectedObject)
+			//{
+			//	
+			//	object = std::make_shared<SceneObject>(selectedObject->GetModel(), selectedObject->GetTexture(), cbv, "new " + selectedObject->GetName());
+			//}
+			//else
 			{
-				object = std::make_shared<SceneObject>(selectedObject->GetModel(), selectedObject->GetTexture(), CreateConstantBuffer(), "new " + selectedObject->GetName());
-			}
-			else
-			{
-				object = std::make_shared<SceneObject>(nullptr, nullptr, CreateConstantBuffer(), "new ");
+				object = std::make_shared<SceneObject>(nullptr, nullptr, cbv, "new ");
 			}
 			objects.emplace(object);
 			selectedObject = object;
+		}
+		if (ImGui::Button("New Portal"))
+		{
+			// TODO : Fix coupling, add duplicating portals
+
+
+			std::shared_ptr<Portal> portal;
+			auto cbv = CreateConstantBuffer();
+			g_scene->m_constantBuffers.push_back(cbv);
+
+			auto renderTexture = CreateRenderTexture("Portal");
+			g_scene->m_renderTextures.push_back(renderTexture);
+
+			portal = std::make_shared<Portal>(nullptr, renderTexture, cbv, "new Portal", g_scene->m_sceneObjects, g_scene->m_camera);
+			portal->SetScale(XMFLOAT3(1.0f, 1.0f, 0.0f));
+			g_scene->m_portals.insert(portal);
+			g_scene->m_sceneObjects.insert(portal);
 		}
 
 		ImGui::EndListBox();
@@ -1095,7 +1131,7 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 			}
 			if (ImGui::BeginCombo("##Texture", name.c_str()))
 			{
-				for (auto texture : m_cbvSrvUavHeap->m_textures)
+				for (auto texture : g_scene->m_textures)
 				{
 					const bool is_selected = (selectedObject->GetTexture() == texture);
 					if (ImGui::Selectable(texture->name.c_str(), is_selected))
@@ -1177,7 +1213,7 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 			}
 			if (ImGui::BeginCombo("##Model", name.c_str()))
 			{
-				for (auto model : m_cbvSrvUavHeap->m_models)
+				for (auto model : g_scene->m_models)
 				{
 					const bool is_selected = (selectedObject->GetModel() == model);
 					if (ImGui::Selectable(model->GetName().c_str(), is_selected))
@@ -1247,6 +1283,35 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 
 						ImGui::EndPopup();
 					}
+				}
+				ImGui::EndCombo();
+			}
+		}
+		// Portal properties, if applicable
+		Portal* selectedPortal = dynamic_cast<Portal*>(selectedObject.get());
+		// See if this object is a portal
+		if(selectedPortal)
+		{
+			// As the current item is a portal, show the portal properties
+			ImGui::Text("Other Portal:");
+
+			std::string name = "None";
+			auto otherPortal = selectedPortal->GetOtherPortal();
+			if (otherPortal)
+			{
+				name = otherPortal->GetName().c_str();
+			}
+			if (ImGui::BeginCombo("##OtherPortal", name.c_str()))
+			{
+				for (auto portal : g_scene->m_portals)
+				{
+					const bool is_selected = (otherPortal == portal);
+					if (ImGui::Selectable(portal->GetName().c_str(), is_selected))
+						selectedPortal->SetOtherPortal(portal);
+
+					// Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+					if (is_selected)
+						ImGui::SetItemDefaultFocus();
 				}
 				ImGui::EndCombo();
 			}

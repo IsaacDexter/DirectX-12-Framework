@@ -20,6 +20,8 @@ public:
 
     void GetFreeHandle(D3D12_CPU_DESCRIPTOR_HANDLE& cpuDescriptorHandle, D3D12_GPU_DESCRIPTOR_HANDLE& gpuDescriptorHandle);
     void GetFreeHandle(D3D12_CPU_DESCRIPTOR_HANDLE& cpuDescriptorHandle);
+    void Free(const D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle, const D3D12_GPU_DESCRIPTOR_HANDLE gpuDescriptorHandle);
+    void Free(const D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle);
 protected:
     virtual void CreateHeap(ID3D12Device* device, const D3D12_DESCRIPTOR_HEAP_DESC desc);
 

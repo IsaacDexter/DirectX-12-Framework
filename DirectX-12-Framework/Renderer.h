@@ -16,14 +16,14 @@ struct RenderTexture;
 struct Resource;
 class Portal;
 class SceneObject;
-
+class Engine;
 
 
 class Renderer
 {
 public:
-	Renderer();
-	
+	Renderer(std::shared_ptr<Engine>& scene);
+	std::shared_ptr<Engine>& g_scene;
 	/*
 	1. Initialize
 	2. Repeat
@@ -33,7 +33,7 @@ public:
 	*/
 	void Initialize(HWND hWnd, const UINT width, const UINT height);
 	void Update();
-	void Render(std::set<std::shared_ptr<SceneObject>>& objects, std::set<std::shared_ptr<Portal>>& portals, std::shared_ptr<SceneObject>& selectedObject, std::shared_ptr<Camera> camera);
+	void Render();
 	void Destroy();
 	void Resize(const UINT width, const UINT height);
 
@@ -42,6 +42,10 @@ public:
 	std::shared_ptr<RenderTexture> CreateRenderTexture(std::string name);
 	std::shared_ptr<Primitive> CreateModel(const wchar_t* path, std::string name);
 	std::shared_ptr<ConstantBufferView> CreateConstantBuffer();
+
+	void UnloadResource(D3D12_CPU_DESCRIPTOR_HANDLE cbvSrvUavCpuDescriptorHandle, D3D12_GPU_DESCRIPTOR_HANDLE cbvSrvUavGpuDescriptorHandle);
+	void UnloadResource(D3D12_CPU_DESCRIPTOR_HANDLE cbvSrvUavCpuDescriptorHandle, D3D12_GPU_DESCRIPTOR_HANDLE cbvSrvUavGpuDescriptorHandle, D3D12_CPU_DESCRIPTOR_HANDLE rtvCpuDescriptorHandle);
+
 
 private:
 	static const UINT m_frameCount = 2;

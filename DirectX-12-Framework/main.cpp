@@ -20,7 +20,7 @@ static std::shared_ptr<Window> g_window;
 int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
 {
 	g_window = std::make_shared<Window>(hInstance);
-	g_renderer = std::make_shared<Renderer>();
+	g_renderer = std::make_shared<Renderer>(g_engine);
 	g_renderer->Initialize(g_window->GetHWND(), g_window->GetClientWidth(), g_window->GetClientHeight());
 	g_window->Show();
 	

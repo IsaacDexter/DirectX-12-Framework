@@ -18,6 +18,11 @@ public:
 	{
 		m_otherPortal = otherPortal;
 	}
+
+	std::shared_ptr<Portal> GetOtherPortal()
+	{
+		return m_otherPortal;
+	}
 	
 	void DrawTexture(ID3D12GraphicsCommandList* commandList);
 

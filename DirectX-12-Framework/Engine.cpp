@@ -12,6 +12,7 @@
 #include "Resource.h"
 #include "Primitive.h"
 #include "ConstantBufferView.h"
+#include "RenderTexture.h"
 
 using namespace DirectX;
 
@@ -21,6 +22,35 @@ Engine::Engine(std::shared_ptr<Renderer> renderer, std::shared_ptr<Window> windo
     , m_renderer(renderer)
     , m_window(window)
 {
+
+}
+
+Engine::~Engine()
+{
+    m_sceneObjects.clear();
+    m_portals.clear();
+    for (auto srv = m_textures.begin(); srv != m_textures.end(); srv++)
+    {
+        auto srvCpuDescriptorHandle = (*srv)->cpuDescriptorHandle;
+        auto srvGpuDescriptorHandle = (*srv)->gpuDescriptorHandle;
+        m_renderer->UnloadResource(srvCpuDescriptorHandle, srvGpuDescriptorHandle);
+    }
+    m_textures.clear();
+    for (auto cbv = m_constantBuffers.begin(); cbv != m_constantBuffers.end(); cbv++)
+    {
+        auto cbvCpuDescriptorHandle = (*cbv)->cpuDescriptorHandle;
+        auto cbvGpuDescriptorHandle = (*cbv)->gpuDescriptorHandle;
+        m_renderer->UnloadResource(cbvCpuDescriptorHandle, cbvGpuDescriptorHandle);
+    }
+    m_constantBuffers.clear();
+    for (auto renderTexture = m_renderTextures.begin(); renderTexture != m_renderTextures.end(); renderTexture++)
+    {
+        auto srvCpuDescriptorHandle = (*renderTexture)->cpuDescriptorHandle;
+        auto srvGpuDescriptorHandle = (*renderTexture)->gpuDescriptorHandle;
+        auto rtvCpuDescriptorHandle = (*renderTexture)->rtvCpuDescriptorHandle;
+        m_renderer->UnloadResource(srvCpuDescriptorHandle, srvGpuDescriptorHandle, rtvCpuDescriptorHandle);
+    }
+    m_renderTextures.clear();
 
 }
 
@@ -78,7 +108,7 @@ void Engine::Update()
 void Engine::Render()
 {
     // Update constant buffer
-    m_renderer->Render(m_sceneObjects, m_portals, m_selectedObject, m_camera);
+    m_renderer->Render();
 }
 
 void Engine::OnKeyDown(WPARAM wParam)

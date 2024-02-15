@@ -59,4 +59,20 @@ void DescriptorHeap::GetFreeHandle(D3D12_CPU_DESCRIPTOR_HANDLE& cpuDescriptorHan
     }
 }
 
+void DescriptorHeap::Free(const D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle, const D3D12_GPU_DESCRIPTOR_HANDLE gpuDescriptorHandle)
+{
+    std::pair<D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_GPU_DESCRIPTOR_HANDLE> freeHandle(cpuDescriptorHandle, gpuDescriptorHandle);
+    m_freeHandles.emplace(freeHandle);
+}
+
+void DescriptorHeap::Free(const D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle)
+{
+    // TODO : Make this safer, segment this class properly into CPU only/CPU and GPU
+
+    std::pair<D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_GPU_DESCRIPTOR_HANDLE> freeHandle;
+    freeHandle.first = cpuDescriptorHandle;
+    freeHandle.second = {};
+    m_freeHandles.emplace(freeHandle);
+}
+
 
