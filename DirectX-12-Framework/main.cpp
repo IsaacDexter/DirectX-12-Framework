@@ -12,6 +12,7 @@
 
 #include "TestScene.h"
 #include "TunnelScene.h"
+#include "DisconnectedScene.h"
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow);
 
@@ -89,6 +90,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			case VK_NUMPAD2:
 			{
 				g_engine = std::make_unique<TunnelScene>(g_renderer, g_window);
+				g_engine->Initialize();
+			}
+			break;
+			case VK_NUMPAD3:
+			{
+				g_engine = std::make_unique<DisconnectedScene>(g_renderer, g_window);
 				g_engine->Initialize();
 			}
 			break;

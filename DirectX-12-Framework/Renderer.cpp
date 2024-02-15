@@ -994,6 +994,7 @@ void Renderer::UpdateGUI(std::set<std::shared_ptr<SceneObject>>& objects, std::s
 void Renderer::ShowSceneGraph(std::set<std::shared_ptr<SceneObject>>& objects, std::shared_ptr<SceneObject>& selectedObject)
 {
 	bool open = true;
+	ImGui::SetNextWindowSize(ImVec2(150, 500), ImGuiCond_::ImGuiCond_Once);
 	if (!ImGui::Begin("Scene Graph", &open))
 	{
 		ImGui::End();
@@ -1058,6 +1059,7 @@ void Renderer::ShowSceneGraph(std::set<std::shared_ptr<SceneObject>>& objects, s
 void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 {
 	bool open = true;
+	ImGui::SetNextWindowSize(ImVec2(250, 500), ImGuiCond_::ImGuiCond_Once);
 	if (!ImGui::Begin("Properties Editor", &open))
 	{
 		ImGui::End();
@@ -1065,6 +1067,8 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 	}
 	if (selectedObject)
 	{
+		// Portal properties, if applicable
+		Portal* selectedPortal = dynamic_cast<Portal*>(selectedObject.get());
 
 		// Create the list of items in the world
 		/*if (ImGui::TreeNode(selectedObject->GetName().c_str()))
@@ -1101,13 +1105,32 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 			}
 		}
 		// Scale
+		if (selectedPortal)
+		{
+			ImGui::Text("Scale:");
+
+			float scale[2] = { selectedObject->GetScale().x, selectedObject->GetScale().y };
+			if (ImGui::DragFloat2("##Scale", scale, 0.1f, 0.1f, 100.0f))
+			{
+				// TODO : Fix scaling properly
+				if (scale[0] > 0.0f && scale[1] > 0.0f)
+				{
+					selectedObject->SetScale(XMFLOAT3(scale[0], scale[1], 0.0f));
+				}
+
+			}
+		}
+		else
 		{
 			ImGui::Text("Scale:");
 
 			float scale[3] = { selectedObject->GetScale().x, selectedObject->GetScale().y, selectedObject->GetScale().z };
 			if (ImGui::DragFloat3("##Scale", scale, 0.1f, 0.1f, 100.0f))
 			{
+				// TODO : Fix scaling properly
+
 				selectedObject->SetScale(XMFLOAT3(scale[0], scale[1], scale[2]));
+
 			}
 		}
 		// Forward (READ ONLY)
@@ -1119,88 +1142,6 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 
 			ImGui::DragFloat3("##Forward", forward, 0.05f);
 			ImGui::EndDisabled();
-		}
-		// Texture
-		{
-			ImGui::Text("Texture:");
-
-			std::string name = "None";
-			if (selectedObject->GetTexture())
-			{
-				name = selectedObject->GetTexture()->name.c_str();
-			}
-			if (ImGui::BeginCombo("##Texture", name.c_str()))
-			{
-				for (auto texture : g_scene->m_textures)
-				{
-					const bool is_selected = (selectedObject->GetTexture() == texture);
-					if (ImGui::Selectable(texture->name.c_str(), is_selected))
-						selectedObject->SetTexture(texture);
-
-					if (is_selected)
-						ImGui::SetItemDefaultFocus();
-				}
-				// Add additional "None" option
-				{
-					const bool is_selected = (selectedObject->GetTexture() == nullptr);
-					if (ImGui::Selectable("None", is_selected))
-						selectedObject->SetTexture(nullptr);
-
-					if (is_selected)
-						ImGui::SetItemDefaultFocus();
-				}
-				// Add additional "Load" option
-				{
-					if (ImGui::Button("Load"))
-					{
-						ImGui::OpenPopup("##LoadTexture");
-					}
-					if (ImGui::BeginPopup("##LoadTexture"))
-					{
-						static std::string path;
-						static std::string name;
-						// use to tell the user they've entered an invalid path
-						const char validPathHint[] = "Path...";
-						const char invalidPathHint[] = "Invalid Path!";
-						static std::string pathHint = validPathHint;
-
-						// Ensure the user can only hit load if they've changed the path and have a valid name
-						static bool pathChanged = false;
-						bool nameValid = false;
-
-						pathChanged |= ImGui::InputTextWithHint("##TexturePath", pathHint.c_str(), &path);
-						pathChanged &= !path.empty();
-						ImGui::InputTextWithHint("##TextureName", "Name...", &name);
-						nameValid = !name.empty();
-						//nameValid &= !m_cbvSrvUavHeap->m_textures.contains(name);
-
-						ImGui::BeginDisabled(!(pathChanged && nameValid));
-						if (ImGui::Button("Load"))
-						{
-							// Convert the path to a literal to use in the model loader
-							std::wstring wpath(path.begin(), path.end());
-							auto texture = CreateTexture(wpath.c_str(), name);
-							// If the model was loaded correctly, set it
-							if (texture)
-							{
-								selectedObject->SetTexture(texture);
-								pathHint = validPathHint;
-
-							}
-							else
-							{
-								path = "";
-								pathHint = invalidPathHint;
-								pathChanged = false;
-							}
-						}
-						ImGui::EndDisabled();
-
-						ImGui::EndPopup();
-					}
-				}
-				ImGui::EndCombo();
-			}
 		}
 		// Model
 		{
@@ -1234,10 +1175,14 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 				}
 				// Add additional "Load" option
 				{
+					// TODO : Add .obj loading
+					ImGui::BeginDisabled();
 					if (ImGui::Button("Load"))
 					{
 						ImGui::OpenPopup("##LoadModel");
 					}
+					ImGui::EndDisabled();
+
 					if (ImGui::BeginPopup("##LoadModel"))
 					{
 						static std::string path;
@@ -1287,8 +1232,6 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 				ImGui::EndCombo();
 			}
 		}
-		// Portal properties, if applicable
-		Portal* selectedPortal = dynamic_cast<Portal*>(selectedObject.get());
 		// See if this object is a portal
 		if(selectedPortal)
 		{
@@ -1314,6 +1257,91 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 						ImGui::SetItemDefaultFocus();
 				}
 				ImGui::EndCombo();
+			}
+		}
+		else
+		{
+			// Texture
+			{
+				ImGui::Text("Texture:");
+
+				std::string name = "None";
+				if (selectedObject->GetTexture())
+				{
+					name = selectedObject->GetTexture()->name.c_str();
+				}
+				if (ImGui::BeginCombo("##Texture", name.c_str()))
+				{
+					for (auto texture : g_scene->m_textures)
+					{
+						const bool is_selected = (selectedObject->GetTexture() == texture);
+						if (ImGui::Selectable(texture->name.c_str(), is_selected))
+							selectedObject->SetTexture(texture);
+
+						if (is_selected)
+							ImGui::SetItemDefaultFocus();
+					}
+					// Add additional "None" option
+					{
+						const bool is_selected = (selectedObject->GetTexture() == nullptr);
+						if (ImGui::Selectable("None", is_selected))
+							selectedObject->SetTexture(nullptr);
+
+						if (is_selected)
+							ImGui::SetItemDefaultFocus();
+					}
+					// Add additional "Load" option
+					{
+						if (ImGui::Button("Load"))
+						{
+							ImGui::OpenPopup("##LoadTexture");
+						}
+						if (ImGui::BeginPopup("##LoadTexture"))
+						{
+							static std::string path;
+							static std::string name;
+							// use to tell the user they've entered an invalid path
+							const char validPathHint[] = "Path...";
+							const char invalidPathHint[] = "Invalid Path!";
+							static std::string pathHint = validPathHint;
+
+							// Ensure the user can only hit load if they've changed the path and have a valid name
+							static bool pathChanged = false;
+							bool nameValid = false;
+
+							pathChanged |= ImGui::InputTextWithHint("##TexturePath", pathHint.c_str(), &path);
+							pathChanged &= !path.empty();
+							ImGui::InputTextWithHint("##TextureName", "Name...", &name);
+							nameValid = !name.empty();
+							//nameValid &= !m_cbvSrvUavHeap->m_textures.contains(name);
+
+							ImGui::BeginDisabled(!(pathChanged && nameValid));
+							if (ImGui::Button("Load"))
+							{
+								// Convert the path to a literal to use in the model loader
+								std::wstring wpath(path.begin(), path.end());
+								auto texture = CreateTexture(wpath.c_str(), name);
+								// If the model was loaded correctly, set it
+								if (texture)
+								{
+									selectedObject->SetTexture(texture);
+									pathHint = validPathHint;
+
+								}
+								else
+								{
+									path = "";
+									pathHint = invalidPathHint;
+									pathChanged = false;
+								}
+							}
+							ImGui::EndDisabled();
+
+							ImGui::EndPopup();
+						}
+					}
+					ImGui::EndCombo();
+				}
 			}
 		}
 
