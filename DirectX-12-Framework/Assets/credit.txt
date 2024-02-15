@@ -28,15 +28,39 @@ License https://creativecommons.org/publicdomain/zero/1.0/deed.en
 Plastic 017 A
 ambientCG.com/a/Plastic017A
 2023-07-20
+https://docs.ambientcg.com/license/
 
 Asphalt 029 B (Bicycle Path)
 ambientCG.com/a/Asphalt029B
 2023-02-17
+https://docs.ambientcg.com/license/
 
 Fabric 069
 ambientCG.com/a/Fabric069
 2022-08-28
+https://docs.ambientcg.com/license/
 
 Fabric 035
 ambientCG.com/a/Fabric035
 2020-02-23
+https://docs.ambientcg.com/license/
+
+Paving Stones 128
+ambientCG.com/a/PavingStones128
+2022-12-06
+https://docs.ambientcg.com/license/
+
+Bricks 058
+ambientCG.com/a/Bricks058
+2021-04-11
+https://docs.ambientcg.com/license/
+
+Bricks 059
+ambientCG.com/a/Bricks059
+2021-04-11
+https://docs.ambientcg.com/license/
+
+Bricks 060
+ambientCG.com/a/Bricks060
+2021-04-11
+https://docs.ambientcg.com/license/

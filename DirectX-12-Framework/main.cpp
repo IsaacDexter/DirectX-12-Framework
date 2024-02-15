@@ -1,7 +1,6 @@
 #include "stdafx.h"
 #include "Engine.h"
 #include "Renderer.h"
-#include "TestScene.h"
 #include "Window.h"
 #include "imgui.h"
 #include "imgui_impl_dx12.h"
@@ -10,6 +9,9 @@
 // For mouse input helpers
 #include <windowsx.h>
 #include <array>
+
+#include "TestScene.h"
+#include "TunnelScene.h"
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow);
 
@@ -86,7 +88,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			break;
 			case VK_NUMPAD2:
 			{
-				//g_engine = g_scenes[2];
+				g_engine = std::make_unique<TunnelScene>(g_renderer, g_window);
+				g_engine->Initialize();
 			}
 			break;
 			default:

@@ -184,6 +184,7 @@
     <ClInclude Include="ShaderResourceView.h" />
     <ClInclude Include="DescriptorHeap.h" />
     <ClInclude Include="TestScene.h" />
+    <ClInclude Include="TunnelScene.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>
@@ -212,6 +213,7 @@
     <ClCompile Include="ShaderResourceView.cpp" />
     <ClCompile Include="DescriptorHeap.cpp" />
     <ClCompile Include="TestScene.cpp" />
+    <ClCompile Include="TunnelScene.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>

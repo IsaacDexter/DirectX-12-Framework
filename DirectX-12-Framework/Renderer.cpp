@@ -1085,7 +1085,7 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 			ImGui::Text("Position:");
 
 			float position[3] = { selectedObject->GetPosition().x, selectedObject->GetPosition().y, selectedObject->GetPosition().z };
-			if (ImGui::DragFloat3("##Position", position, 0.05f))
+			if (ImGui::DragFloat3("##Position", position, 0.1f))
 			{
 				selectedObject->SetPosition(XMFLOAT3(position[0], position[1], position[2]));
 			}
@@ -1105,7 +1105,7 @@ void Renderer::ShowProperties(std::shared_ptr<SceneObject>& selectedObject)
 			ImGui::Text("Scale:");
 
 			float scale[3] = { selectedObject->GetScale().x, selectedObject->GetScale().y, selectedObject->GetScale().z };
-			if (ImGui::DragFloat3("##Scale", scale, 0.05f, 0.05f, 100.0f))
+			if (ImGui::DragFloat3("##Scale", scale, 0.1f, 0.1f, 100.0f))
 			{
 				selectedObject->SetScale(XMFLOAT3(scale[0], scale[1], scale[2]));
 			}
