@@ -49,6 +49,7 @@ void RenderTexture::Initialize(ID3D12Device* device)
 void RenderTexture::BeginDraw(ID3D12GraphicsCommandList* commandList)
 // Indicate that render texture will be used as the render target
 {
+	// TODO : Batch resource barrier calls for portals https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12
 	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
 	commandList->ResourceBarrier(1, &barrier);
 
