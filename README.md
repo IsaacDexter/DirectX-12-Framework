@@ -1,5 +1,4 @@
-# DirectX-12-Framework
-
+# Euclidean Manifold Topology Engine
 Euclidean Manifold Topology Engine, or *EMTE* is a graphics framework for rendering portals and manifolds.
 
 https://github.com/IsaacDexter/DirectX-12-Framework/assets/90466022/cd3455ae-8aad-41eb-b7c9-e06c5a235227
@@ -32,3 +31,11 @@ December 31, 2023
 [https://github.com/ocornut/imgui](https://github.com/ocornut/imgui)
 
 [MIT License](https://github.com/ocornut/imgui?tab=readme-ov-file#MIT-1-ov-file)
+
+## 3D Game Engine Programming
+
+Jeremiah van Oosten
+
+[https://www.3dgep.com/category/graphics-programming/directx/](https://www.3dgep.com/category/graphics-programming/directx/)
+
+Thanks to this fantastic tutorial for helping me wrap my head around command pooling.
